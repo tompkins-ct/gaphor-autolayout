@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 
 [project.entry-points."gaphor.services"]
-"ELK_autolayout" = "gaphor_autolayout:AutoLayoutELK"
+"ELK_autolayout" = "gaphor_autolayout.autolayoutelk:AutoLayoutELK"
 
 [tool.pytest.ini_options]
 testpaths = [
