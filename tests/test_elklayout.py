@@ -10,7 +10,6 @@ from gaphor_autolayout.autolayoutelk import (
     _parse_edge_pos,
     _strip_quotes,
 )
-# from gaphor.diagram.tests.fixtures import connect
 
 from gaphor.UML.diagramitems import (
     ActionItem,
@@ -36,7 +35,6 @@ from gaphor.diagram.general.modelinglanguage import GeneralModelingLanguage
 from gaphor.SysML.modelinglanguage import SysMLModelingLanguage
 from gaphor.UML.modelinglanguage import UMLModelingLanguage
 from gaphor.UML.uml import Diagram
-from gaphor.ui.diagramview import DiagramView
 
 
 log = logging.getLogger(__name__)
