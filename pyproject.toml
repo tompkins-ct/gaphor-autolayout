@@ -1,0 +1,12 @@
+[project]
+name = "gaphor-autolayout"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "gaphor>=3.0.0",
+]
+
+[tool.poetry.plugins."gaphor.services"]
+"ELK _autolayout" = "gaphor-autolayout.autolayout:ExportPlugin"
