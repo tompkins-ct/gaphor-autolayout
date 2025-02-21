@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import logging
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from functools import singledispatch
@@ -27,6 +28,7 @@ from gaphor.transaction import Transaction
 from gaphor.UML.actions.activitynodes import ForkNodeItem
 from gaphor.UML.classes import AssociationItem, DependencyItem, GeneralizationItem
 
+log = logging.getLogger(__name__)
 
 @dataclass
 class BaseItem:
