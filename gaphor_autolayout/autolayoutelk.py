@@ -30,6 +30,7 @@ from gaphor.UML.classes import AssociationItem, DependencyItem, GeneralizationIt
 
 log = logging.getLogger(__name__)
 
+
 @dataclass
 class BaseItem:
     """Base item type for JSON output"""

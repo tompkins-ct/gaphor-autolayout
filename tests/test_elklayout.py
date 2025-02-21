@@ -63,6 +63,7 @@ def application():
 def session(application):
     return application.new_session()
 
+
 @pytest.fixture
 def event_manager():
     return EventManager()
@@ -76,6 +77,7 @@ def element_factory(event_manager, modeling_language):
     yield element_factory
     element_factory.shutdown()
 
+
 @pytest.fixture
 def modeling_language():
     return MockModelingLanguage(
@@ -84,6 +86,7 @@ def modeling_language():
         UMLModelingLanguage(),
         SysMLModelingLanguage(),
     )
+
 
 @pytest.fixture
 def diagram(element_factory, event_manager):
