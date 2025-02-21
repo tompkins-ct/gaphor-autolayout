@@ -175,3 +175,6 @@ cython_debug/
 
 # intelij files
 .idea
+
+# skip node modules
+node_modules/
