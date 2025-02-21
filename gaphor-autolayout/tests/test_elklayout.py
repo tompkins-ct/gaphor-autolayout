@@ -2,7 +2,7 @@ import json
 
 from gaphor import UML
 from gaphor.diagram.tests.fixtures import connect
-from gaphor.plugins.autolayoutELK.autolayoutelk import (
+from autolayoutelk import (
     AutoLayoutELK,
     _parse_edge_pos,
     _strip_quotes,
