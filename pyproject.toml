@@ -4,9 +4,15 @@ version = "0.1.0"
 description = "Auto layout diagrams using ELK"
 readme = "README.md"
 requires-python = ">=3.12"
+dependencies = []
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
 
 [project.entry-points."gaphor.services"]
-"ELK_autolayout" = "gaphor-autolayout:AutoLayoutELK"
+"ELK_autolayout" = "gaphor_autolayout.autolayoutelk:AutoLayoutELKService"
 
 [tool.pytest.ini_options]
 testpaths = [
@@ -14,6 +20,13 @@ testpaths = [
 ]
 addopts = [
     "--import-mode=importlib",
+]
+
+[tool.poetry]
+requires-poetry = ">=2.0"
+include = [
+    {path = "gaphor_autolayout/elkrunner.js", format = ["sdist", "wheel"]},
+    {path = "package.json", format = ["sdist", "wheel"]},
 ]
 
 [dependency-groups]

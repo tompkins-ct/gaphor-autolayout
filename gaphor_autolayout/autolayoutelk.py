@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import logging
+
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from functools import singledispatch
@@ -320,8 +321,15 @@ def _add_to_graph(parent, edge_or_node) -> None:
 
 def _run_nodejs_script(script_path, arg):
     """run Node.js script from python"""
+
+    # elk_runner = pm.require(os.path.splitext(script_path)[0])
+    # elk = pm.eval("require('elkjs')")
+    # elk = STPyV8.eval("require('elkjs')")
+    # STPyV8.
+    # return elk_runner.layout_json(arg)
     cmd = ["node", script_path] + arg
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    # result = pm.run([script_path] + arg, capture_output=True, text=True, check=False)
 
     if result.returncode == 0:
         return result.stdout

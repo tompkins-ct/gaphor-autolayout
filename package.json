@@ -1,4 +1,8 @@
 {
+  "name": "autolayoutelk",
+  "version": "0.1.0",
+  "description": "Supporting runner scripts for autolayout with gaphor",
+  "main": "./gaphor_autolayout/elkrunner.js",
   "dependencies": {
     "elkjs": "^0.9.3"
   }
