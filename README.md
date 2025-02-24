@@ -5,6 +5,5 @@ This is a plugin for [Gaphor](https://github.com/gaphor/gaphor) that implements 
 Install to gaphor using guidelines here: https://docs.gaphor.org/en/latest/plugins.html
 
 ```cmd
-pip install --target $HOME/.local/gaphor/plugins-2 git+https://github.com/tompkins-ct/gaphor-autolayout.git
-npm install --prefix $HOME/.local/gaphor/plugins-2/gaphor_autolayout git+https://github.com/tompkins-ct/gaphor-autolayout.git#fix-pip-install
+pip install --target $HOME/.local/gaphor/plugins-2 git+https://github.com/tompkins-ct/gaphor-autolayout.git && npm install --prefix $HOME/.local/gaphor/plugins-2/gaphor_autolayout git+https://github.com/tompkins-ct/gaphor-autolayout.git
 ```
