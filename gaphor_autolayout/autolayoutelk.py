@@ -2,8 +2,6 @@ import json
 import os
 import subprocess
 import logging
-import pythonmonkey as pm
-import STPyV8
 
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
