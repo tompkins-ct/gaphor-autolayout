@@ -4,6 +4,10 @@ version = "0.1.0"
 description = "Auto layout diagrams using ELK"
 readme = "README.md"
 requires-python = ">=3.12"
+dependencies = [
+    "pythonmonkey>=1.1.0",
+    "stpyv8>=13.1.201.22",
+]
 
 [project.entry-points."gaphor.services"]
 "ELK_autolayout" = "gaphor_autolayout.autolayoutelk:AutoLayoutELKService"
