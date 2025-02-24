@@ -24,9 +24,6 @@ addopts = [
 
 [tool.poetry]
 requires-poetry = ">=2.0"
-packages = [
-    {include = "gaphor_autolayout/elkrunner.js"},
-]
 include = [
     {path = "gaphor_autolayout/elkrunner.js", format = ["sdist", "wheel"]},
 ]
