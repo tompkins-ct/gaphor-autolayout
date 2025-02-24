@@ -19,9 +19,11 @@ addopts = [
 
 [tool.poetry]
 packages = [
-{include = "gaphor_autolayout/elkrunner.js"},
+    {include = "gaphor_autolayout/elkrunner.js"},
 ]
-include = ["gaphor_autolayout/elkrunner.js"]
+include = [
+    {path = "gaphor_autolayout/elkrunner.js", format = ["sdist", "wheel"]},
+]
 
 [dependency-groups]
 dev = [
