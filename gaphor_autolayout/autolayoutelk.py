@@ -328,7 +328,7 @@ def _run_nodejs_script(script_path, arg):
     # elk = STPyV8.eval("require('elkjs')")
     # STPyV8.
     # return elk_runner.layout_json(arg)
-    cmd = ["node", script_path] + arg
+    cmd = "node " + script_path + " " + arg
     result = subprocess.run(cmd, capture_output=True, text=True, check=False, shell=True)
     # result = pm.run([script_path] + arg, capture_output=True, text=True, check=False)
 
