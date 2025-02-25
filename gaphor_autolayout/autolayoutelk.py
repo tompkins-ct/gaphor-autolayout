@@ -323,20 +323,7 @@ def _add_to_graph(parent, edge_or_node) -> None:
 
 def _run_nodejs_script(script_path, arg):
     """run Node.js script from python"""
-
-    # elk_runner = pm.require(os.path.splitext(script_path)[0])
-    # elk = pm.eval("require('elkjs')")
-    # elk = STPyV8.eval("require('elkjs')")
-    # STPyV8.
-    # return elk_runner.layout_json(arg)
-
-    # Note: path in compiled bytecode is different from straight run
-    # so we need to re-export path for nodejs
-    # typical nodejs paths
-    # sys.path.append("C:/Program Files/nodejs")
-    # sys.path.append("/usr/local/bin/node")
-    # sys.path.append("/opt/homebrew/bin/node")
-    # evaluate nodejs path executable
+    # Note: path in compiled bytecode is different from straight run so we need to find the NodeJS executable
     if os.path.exists("/usr/local/bin/node"):
         node_exc = r"/usr/local/bin/node"
     elif os.path.exists("/opt/homebrew/bin/node"):
@@ -346,15 +333,12 @@ def _run_nodejs_script(script_path, arg):
     else:
         raise Exception("Can't find nodejs executable")
 
-
     cmd = [node_exc, script_path] + arg
-    # cmd = "node " + "\"" + script_path + "\" " + str(arg[0])
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     except FileNotFoundError:
         # cannot find node app
         raise Exception("Error: NodeJS was not found. Check PATH or use absolute path. Current PATH:", os.environ['PATH'])
-    # result = pm.run([script_path] + arg, capture_output=True, text=True, check=False)
 
     if result.returncode == 0:
         return result.stdout
