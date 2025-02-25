@@ -336,12 +336,18 @@ def _run_nodejs_script(script_path, arg):
     # sys.path.append("C:/Program Files/nodejs")
     # sys.path.append("/usr/local/bin/node")
     # sys.path.append("/opt/homebrew/bin/node")
-    os.environ['PATH'] += os.pathsep + "/usr/local/bin/node"
-    os.environ['PATH'] += os.pathsep + "/opt/homebrew/bin/node"
-    os.environ['PATH'] += os.pathsep + "C:/Program Files/nodejs"
+    # evaluate nodejs path executable
+    if os.path.exists("/usr/local/bin/node"):
+        node_exc = r"/usr/local/bin/node"
+    elif os.path.exists("/opt/homebrew/bin/node"):
+        node_exc = r"/opt/homebrew/bin/node"
+    elif os.path.exists("C:/Program Files/nodejs"):
+        node_exc = r"C:/Program Files/nodejs.exe"
+    else:
+        raise Exception("Can't find nodejs executable")
 
 
-    cmd = ["node", script_path] + arg
+    cmd = [node_exc, script_path] + arg
     # cmd = "node " + "\"" + script_path + "\" " + str(arg[0])
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
