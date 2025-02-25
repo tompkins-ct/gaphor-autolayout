@@ -322,20 +322,30 @@ def _add_to_graph(parent, edge_or_node) -> None:
 
 def _run_nodejs_script(script_path, arg):
     """run Node.js script from python"""
+    # Note: path in compiled bytecode is different from straight run so we need to find the NodeJS executable
+    if os.path.exists("/usr/local/bin/node"):
+        node_exc = r"/usr/local/bin/node"
+    elif os.path.exists("/opt/homebrew/bin/node"):
+        node_exc = r"/opt/homebrew/bin/node"
+    elif os.path.exists("C:/Program Files/nodejs"):
+        node_exc = r"C:/Program Files/nodejs.exe"
+    else:
+        raise Exception("Can't find nodejs executable")
 
-    # elk_runner = pm.require(os.path.splitext(script_path)[0])
-    # elk = pm.eval("require('elkjs')")
-    # elk = STPyV8.eval("require('elkjs')")
-    # STPyV8.
-    # return elk_runner.layout_json(arg)
-    cmd = ["node", script_path] + arg
-    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
-    # result = pm.run([script_path] + arg, capture_output=True, text=True, check=False)
+    cmd = [node_exc, script_path] + arg
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    except FileNotFoundError:
+        # cannot find node app
+        raise Exception(
+            "Error: NodeJS was not found. Check PATH or use absolute path. Current PATH:",
+            os.environ["PATH"],
+        )
 
     if result.returncode == 0:
         return result.stdout
     else:
-        raise Exception(f"Error running Node.js script: {result.stderr}")
+        raise Exception(f"Error running or finding Node.js script: {result.stderr}")
 
 
 def _as_cluster(presentation: Presentation):
