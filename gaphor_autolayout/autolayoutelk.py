@@ -333,9 +333,13 @@ def _run_nodejs_script(script_path, arg):
     # Note: path in compiled bytecode is different from straight run
     # so we need to re-export path for nodejs
     # typical nodejs paths
-    sys.path.append("C:/Program Files/nodejs")
-    sys.path.append("/usr/local/bin/node")
-    sys.path.append("/opt/homebrew/bin/node")
+    # sys.path.append("C:/Program Files/nodejs")
+    # sys.path.append("/usr/local/bin/node")
+    # sys.path.append("/opt/homebrew/bin/node")
+    os.environ['PATH'] += os.pathsep + "/usr/local/bin/node"
+    os.environ['PATH'] += os.pathsep + "/opt/homebrew/bin/node"
+    os.environ['PATH'] += os.pathsep + "C:/Program Files/nodejs"
+
 
     cmd = ["node", script_path] + arg
     # cmd = "node " + "\"" + script_path + "\" " + str(arg[0])
