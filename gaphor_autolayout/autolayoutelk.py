@@ -111,22 +111,33 @@ class AutoLayoutELKService(Service, ActionProvider):
         pass
 
     @action(
-        name="auto-layout-ELK",
-        label=gettext("Auto Layout ELK"),
+        name="auto-layout-ELK_LR",
+        label=gettext("Auto Layout ELK Left-to-Right"),
         # shortcut="<Primary><Shift>L"
     )
-    def layout_current_diagram(self):
+    def layout_current_diagram_lr(self):
         if current_diagram := self.diagrams.get_current_diagram():
-            self.layout(current_diagram)
+            layout_props = layout_properties_normal()
+            self.layout(current_diagram, layout_props)
 
-    def layout(self, diagram: Diagram):
+    @action(
+        name="auto-layout-ELK-TD",
+        label=gettext("Auto Layout ELK Top-to-Bottom"),
+        # shortcut="<Primary><Shift>L"
+    )
+    def layout_current_diagram_td(self):
+        if current_diagram := self.diagrams.get_current_diagram():
+            layout_props = layout_properties_topdown()
+            self.layout(current_diagram, layout_props)
+
+    def layout(self, diagram: Diagram, layout_props):
         auto_layout = AutoLayoutELK(self.event_manager)
 
         with Transaction(self.event_manager):
-            auto_layout.layout(diagram)
+            auto_layout.layout(diagram, layout_props)
 
 
-def layout_properties() -> dict:
+def layout_properties_normal() -> dict:
     """Setup properties for the top level of the diagram"""
     properties = {
         "elk.algorithm": "layered",
@@ -139,6 +150,25 @@ def layout_properties() -> dict:
         "org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers": "20.0",  # layer to layer placement
         "org.eclipse.elk.spacing.nodeSelfLoop": "20.0",  # space for arrows on self-loops,
         "org.eclipse.elk.font.size": "12",  # default font size for labels (not sure if this does anything)
+        "org.eclipse.elk.layered.wrapping.strategy" : "SINGLE_EDGE"
+    }
+    return properties
+
+
+def layout_properties_topdown() -> dict:
+    """Setup properties for the top level of the diagram"""
+    properties = {
+        "elk.algorithm": "layered",
+        "elk.layered.feedbackEdges": "true",  # feedback edges loop around the layout
+        "org.eclipse.elk.hierarchyHandling": "INCLUDE_CHILDREN",  # allows edges to move between layers
+        "elk.layoutHierarchy": "true",  # enables routing between layers
+        "elk.edgeRouting": "ORTHOGONAL",  # explict default
+        "elk.nodeLabels.placement": "H_CENTER V_TOP INSIDE",  # nominal gaphor placement for node labels
+        "elk.nodeSize.constraints": "MINIMUM_SIZE_ACCOUNTS_FOR_PADDING",  # allows for resizing of nodes
+        "org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers": "20.0",  # layer to layer placement
+        "org.eclipse.elk.spacing.nodeSelfLoop": "20.0",  # space for arrows on self-loops,
+        "org.eclipse.elk.font.size": "12",  # default font size for labels (not sure if this does anything)
+        "org.eclipse.elk.core.options.Direction": "RIGHT",
     }
     return properties
 
@@ -166,11 +196,11 @@ class AutoLayoutELK:
         self.event_manager = event_manager
         self.graph: Node | None = None
 
-    def layout(self, diagram: Diagram) -> None:
+    def layout(self, diagram: Diagram, layout_props: dict) -> None:
         """Generate the layout from ELKjs"""
         diagram.update(diagram.ownedPresentation)
         # in the future, adjust layout properties based on the diagram type
-        layout_props = layout_properties()
+        layout_props = layout_props
         self.graph = baseline_graph(layout_props)
         self.generate_graph(diagram)
 
