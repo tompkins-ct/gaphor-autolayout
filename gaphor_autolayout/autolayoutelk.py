@@ -2,7 +2,6 @@ import json
 import os
 import subprocess
 import logging
-import sys
 
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
@@ -338,7 +337,10 @@ def _run_nodejs_script(script_path, arg):
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     except FileNotFoundError:
         # cannot find node app
-        raise Exception("Error: NodeJS was not found. Check PATH or use absolute path. Current PATH:", os.environ['PATH'])
+        raise Exception(
+            "Error: NodeJS was not found. Check PATH or use absolute path. Current PATH:",
+            os.environ["PATH"],
+        )
 
     if result.returncode == 0:
         return result.stdout
