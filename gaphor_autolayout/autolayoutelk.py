@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import logging
+import sys
 
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
@@ -328,21 +329,27 @@ def _run_nodejs_script(script_path, arg):
     # elk = STPyV8.eval("require('elkjs')")
     # STPyV8.
     # return elk_runner.layout_json(arg)
+
+    # Note: path in compiled bytecode is different from straight run
+    # so we need to re-export path for nodejs
+    # typical nodejs paths
+    sys.path.append("C:/Program Files/nodejs")
+    sys.path.append("/usr/local/bin/node")
+    sys.path.append("/opt/homebrew/bin/node")
+
     cmd = ["node", script_path] + arg
     # cmd = "node " + "\"" + script_path + "\" " + str(arg[0])
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     except FileNotFoundError:
-        print("Error: my_program not found. Check PATH or use absolute path.")
-        print("Current PATH:", os.environ['PATH'])
-        raise Exception("Error: my_program not found. Check PATH or use absolute path. \n Current PATH:", os.environ['PATH'])
+        # cannot find node app
+        raise Exception("Error: NodeJS was not found. Check PATH or use absolute path. Current PATH:", os.environ['PATH'])
     # result = pm.run([script_path] + arg, capture_output=True, text=True, check=False)
 
     if result.returncode == 0:
         return result.stdout
     else:
-        print("Error: can't finde node ")
-        raise Exception(f"Error running Node.js script: {result.stderr}")
+        raise Exception(f"Error running or finding Node.js script: {result.stderr}")
 
 
 def _as_cluster(presentation: Presentation):
