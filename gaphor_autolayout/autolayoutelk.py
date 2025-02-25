@@ -330,12 +330,18 @@ def _run_nodejs_script(script_path, arg):
     # return elk_runner.layout_json(arg)
     cmd = ["node", script_path] + arg
     # cmd = "node " + "\"" + script_path + "\" " + str(arg[0])
-    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    except FileNotFoundError:
+        print("Error: my_program not found. Check PATH or use absolute path.")
+        print("Current PATH:", os.environ['PATH'])
+        raise Exception("Failed to run node.")
     # result = pm.run([script_path] + arg, capture_output=True, text=True, check=False)
 
     if result.returncode == 0:
         return result.stdout
     else:
+        print("Error: can't finde node ")
         raise Exception(f"Error running Node.js script: {result.stderr}")
 
 
