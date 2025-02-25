@@ -335,7 +335,7 @@ def _run_nodejs_script(script_path, arg):
     except FileNotFoundError:
         print("Error: my_program not found. Check PATH or use absolute path.")
         print("Current PATH:", os.environ['PATH'])
-        raise Exception("Failed to run node.")
+        raise Exception("Error: my_program not found. Check PATH or use absolute path. \n Current PATH:", os.environ['PATH'])
     # result = pm.run([script_path] + arg, capture_output=True, text=True, check=False)
 
     if result.returncode == 0:
