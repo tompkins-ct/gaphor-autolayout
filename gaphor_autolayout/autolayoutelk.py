@@ -12,6 +12,7 @@ from gaphas.geometry import Point
 from gaphas.item import NW
 from gaphas.matrix import Matrix
 from gaphas.segment import Segment
+from gaphor.UML import Comment
 
 from gaphor.abc import ActionProvider, Service
 from gaphor.action import action
@@ -458,6 +459,11 @@ def _(presentation: ElementPresentation):
             ),
             "org.eclipse.elk.nodeSize.constraints": "MINIMUM_SIZE",
         }
+
+        # comments can be placed out special (allow for more flexibility as opposed to left to right)
+        if isinstance(presentation, Comment):
+            node_layout_options["org.eclipse.elk.commentBox"] = "true"
+
         label_layout_options: dict[str, str | int | float | None] = {}
 
         # Can get label width here. However, node labels wrap and minimum size is established by Gaphor
