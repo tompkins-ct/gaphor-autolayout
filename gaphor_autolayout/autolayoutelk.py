@@ -376,7 +376,7 @@ def _run_nodejs_script(script_path, arg):
     if result.returncode == 0:
         return result.stdout
     else:
-        raise Exception(f"Error running or finding Node.js script: {result.stderr}")
+        raise Exception(f"Error running or finding Node.js script: {result.stderr} with the following input: {arg[0]}")
 
 
 def _as_cluster(presentation: Presentation):
