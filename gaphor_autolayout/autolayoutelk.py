@@ -150,7 +150,7 @@ def layout_properties_normal() -> dict:
         "org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers": "20.0",  # layer to layer placement
         "org.eclipse.elk.spacing.nodeSelfLoop": "20.0",  # space for arrows on self-loops,
         "org.eclipse.elk.font.size": "12",  # default font size for labels (not sure if this does anything)
-        "org.eclipse.elk.layered.wrapping.strategy" : "SINGLE_EDGE"
+        "elk.layered.wrapping.strategy" : "SINGLE_EDGE",
     }
     return properties
 
@@ -169,6 +169,7 @@ def layout_properties_topdown() -> dict:
         "org.eclipse.elk.spacing.nodeSelfLoop": "20.0",  # space for arrows on self-loops,
         "org.eclipse.elk.font.size": "12",  # default font size for labels (not sure if this does anything)
         "elk.direction": "DOWN",
+        "elk.layered.wrapping.strategy": "SINGLE_EDGE",
     }
     return properties
 
