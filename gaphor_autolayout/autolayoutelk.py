@@ -168,7 +168,7 @@ def layout_properties_topdown() -> dict:
         "org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers": "20.0",  # layer to layer placement
         "org.eclipse.elk.spacing.nodeSelfLoop": "20.0",  # space for arrows on self-loops,
         "org.eclipse.elk.font.size": "12",  # default font size for labels (not sure if this does anything)
-        "org.eclipse.elk.core.options.Direction": "RIGHT",
+        "org.eclipse.elk.core.options.Direction": "DOWN",
     }
     return properties
 
