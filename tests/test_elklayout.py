@@ -8,7 +8,7 @@ from gaphor import UML
 from gaphor_autolayout.autolayoutelk import (
     AutoLayoutELK,
     _parse_edge_pos,
-    _strip_quotes,
+    _strip_quotes, layout_properties_normal,
 )
 
 from gaphor.UML.diagramitems import (
@@ -129,8 +129,9 @@ def test_layout_with_association(diagram, create, event_manager):
     connect(a, a.head, c1)
     connect(a, a.tail, c2)
 
-    auto_layout = AutoLayoutELK(event_manager)
-    auto_layout.layout(diagram)
+    layout_props = layout_properties_normal()
+    auto_layout = AutoLayoutELK()
+    auto_layout.layout(diagram, layout_props)
 
 
 # def test_layout_with_comment(diagram, create, event_manager):
@@ -162,8 +163,9 @@ def test_layout_with_nested(diagram, create, event_manager):
     connect(a, a.head, c1)
     connect(a, a.tail, c2)
 
-    auto_layout = AutoLayoutELK(event_manager)
-    auto_layout.layout(diagram)
+    layout_props = layout_properties_normal()
+    auto_layout = AutoLayoutELK()
+    auto_layout.layout(diagram, layout_props)
 
     assert c1.matrix[4] < p.width
     assert c1.matrix[5] < p.height
@@ -179,8 +181,9 @@ def test_layout_with_attached_item(diagram, create, event_manager):
     connect(object_flow, object_flow.head, pin)
     connect(object_flow, object_flow.tail, action2)
 
-    auto_layout = AutoLayoutELK(event_manager)
-    auto_layout.layout(diagram)
+    layout_props = layout_properties_normal()
+    auto_layout = AutoLayoutELK()
+    auto_layout.layout(diagram, layout_props)
 
     assert pin.parent is action
 

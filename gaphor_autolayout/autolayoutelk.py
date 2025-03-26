@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import logging
+import typing
 
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
@@ -31,7 +32,7 @@ from gaphor.UML.actions.activitynodes import ForkNodeItem
 from gaphor.UML.classes import AssociationItem, DependencyItem, GeneralizationItem
 
 log = logging.getLogger(__name__)
-
+logging.basicConfig(filename='myapp.log', level=logging.INFO)
 
 @dataclass
 class BaseItem:
@@ -150,7 +151,7 @@ def layout_properties_normal() -> dict:
         "org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers": "20.0",  # layer to layer placement
         "org.eclipse.elk.spacing.nodeSelfLoop": "20.0",  # space for arrows on self-loops,
         "org.eclipse.elk.font.size": "12",  # default font size for labels (not sure if this does anything)
-        "elk.layered.wrapping.strategy" : "SINGLE_EDGE",
+        "elk.layered.wrapping.strategy" : "MULTI_EDGE",
     }
     return properties
 
@@ -169,7 +170,7 @@ def layout_properties_topdown() -> dict:
         "org.eclipse.elk.spacing.nodeSelfLoop": "20.0",  # space for arrows on self-loops,
         "org.eclipse.elk.font.size": "12",  # default font size for labels (not sure if this does anything)
         "elk.direction": "DOWN",
-        "elk.layered.wrapping.strategy": "SINGLE_EDGE",
+        "elk.layered.wrapping.strategy": "MULTI_EDGE",
     }
     return properties
 
@@ -197,11 +198,13 @@ class AutoLayoutELK:
         self.event_manager = event_manager
         self.graph: Node | None = None
 
-    def layout(self, diagram: Diagram, layout_props: dict) -> None:
+    def layout(self, diagram: Diagram, layout_props: typing.Optional[dict] = None) -> None:
         """Generate the layout from ELKjs"""
         diagram.update(diagram.ownedPresentation)
         # in the future, adjust layout properties based on the diagram type
-        layout_props = layout_props
+        if layout_props is None:
+            layout_props = layout_properties_normal()
+
         self.graph = baseline_graph(layout_props)
         self.generate_graph(diagram)
 
@@ -210,6 +213,7 @@ class AutoLayoutELK:
         current_directory = os.path.dirname(os.path.abspath(__file__))
         elkjs_runner = os.path.join(current_directory, "elkrunner.js")
         rendered_graph_as_str = _run_nodejs_script(elkjs_runner, [json_export])
+        log.info("rendering graph", rendered_graph_as_str)
         rendered_graph_as_dict = json.loads(rendered_graph_as_str)
 
         # get resulting node locations for use late
@@ -353,7 +357,7 @@ def _add_to_graph(parent, edge_or_node) -> None:
 
 def _run_nodejs_script(script_path, arg):
     """run Node.js script from python"""
-    # Note: path in compiled bytecode is different from straight run so we need to find the NodeJS executable
+    # Note: the path in compiled bytecode is different from straight run so we need to find the NodeJS executable
     if os.path.exists("/usr/local/bin/node"):
         node_exc = r"/usr/local/bin/node"
     elif os.path.exists("/opt/homebrew/bin/node"):
@@ -501,7 +505,7 @@ def _(presentation: ElementPresentation):
             "org.eclipse.elk.nodeSize.constraints": "MINIMUM_SIZE",
         }
 
-        # comments can be placed out special (allow for more flexibility as opposed to left to right)
+        # comments can be placed out special (allow for more flexibility as opposed to the left to right)
         if isinstance(presentation, Comment):
             node_layout_options["org.eclipse.elk.commentBox"] = "true"
 
@@ -543,9 +547,14 @@ def _(presentation: ElementPresentation):
         # I don't understand what this is protecting against.
         # If there is a single element, then it should be a node
 
+        # check if the node is a comment
+        node_layout_options = {}
+        if isinstance(presentation, Comment):
+            node_layout_options["org.eclipse.elk.commentBox"] = "true"
+
         yield Node(
             id=presentation.id,
-            properties={},
+            properties=node_layout_options,
             x=None,
             y=None,
             width=presentation.width,
