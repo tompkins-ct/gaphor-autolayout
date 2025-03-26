@@ -1,5 +1,5 @@
 ## Gaphor AutoLayout
-This is a plugin for [Gaphor](https://github.com/gaphor/gaphor) that implements a more powerful auto layout engine using [ELKJS](https://github.com/kieler/elkjs/). 
+This is a plugin for [Gaphor](https://github.com/gaphor/gaphor) that implements a different auto layout engine using [ELKJS](https://github.com/kieler/elkjs/). 
 
 ## Installation
 Install to Gaphor using guidelines here: https://docs.gaphor.org/en/latest/plugins.html
