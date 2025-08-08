@@ -609,7 +609,7 @@ def _(presentation: LinePresentation):
                     x=None,
                     y=None,
                     text=edge_label,
-                    width=_get_label_width(edge_label),
+                    width= 12.0,
                     height=12.0,
                     labels=[],
                 )
