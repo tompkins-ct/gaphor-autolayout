@@ -136,9 +136,8 @@ class AutoLayoutELKService(Service, ActionProvider):
         with Transaction(self.event_manager):
             auto_layout.layout(diagram, layout_props)
 
-
-def layout_properties_normal() -> dict:
-    """Setup properties for the top level of the diagram"""
+def layout_properties() -> dict:
+    """Setup properties for the top level of the diagram - default"""
     properties = {
         "elk.algorithm": "layered",
         "elk.layered.feedbackEdges": "true",  # feedback edges loop around the layout
@@ -147,30 +146,23 @@ def layout_properties_normal() -> dict:
         "elk.edgeRouting": "ORTHOGONAL",  # explict default
         "elk.nodeLabels.placement": "H_CENTER V_TOP INSIDE",  # nominal gaphor placement for node labels
         "elk.nodeSize.constraints": "MINIMUM_SIZE_ACCOUNTS_FOR_PADDING",  # allows for resizing of nodes
-        "org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers": "20.0",  # layer to layer placement
-        "org.eclipse.elk.spacing.nodeSelfLoop": "20.0",  # space for arrows on self-loops,
-        "org.eclipse.elk.font.size": "12",  # default font size for labels (not sure if this does anything)
-        "elk.layered.wrapping.strategy" : "MULTI_EDGE",
+        "spacing.nodeSelfLoop": 30.0,  # space for arrows on self-loops,
+        "spacing.edgeNodeBetweenLayers": 20.0,  # space before the first bend (to allow for arrow head spacing)
+        "org.eclipse.elk.font.size": 12,  # default font size for labels (not sure if this does anything)
+        "elk.layered.wrapping.strategy": "MULTI_EDGE",
     }
+    return properties
+
+def layout_properties_normal() -> dict:
+    """Setup properties for the top level of the diagram"""
+    properties = layout_properties()
     return properties
 
 
 def layout_properties_topdown() -> dict:
     """Setup properties for the top level of the diagram"""
-    properties = {
-        "elk.algorithm": "layered",
-        "elk.layered.feedbackEdges": "true",  # feedback edges loop around the layout
-        "org.eclipse.elk.hierarchyHandling": "INCLUDE_CHILDREN",  # allows edges to move between layers
-        "elk.layoutHierarchy": "true",  # enables routing between layers
-        "elk.edgeRouting": "ORTHOGONAL",  # explict default
-        "elk.nodeLabels.placement": "H_CENTER V_TOP INSIDE",  # nominal gaphor placement for node labels
-        "elk.nodeSize.constraints": "MINIMUM_SIZE_ACCOUNTS_FOR_PADDING",  # allows for resizing of nodes
-        "org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers": "20.0",  # layer to layer placement
-        "org.eclipse.elk.spacing.nodeSelfLoop": "20.0",  # space for arrows on self-loops,
-        "org.eclipse.elk.font.size": "12",  # default font size for labels (not sure if this does anything)
-        "elk.direction": "DOWN",
-        "elk.layered.wrapping.strategy": "MULTI_EDGE",
-    }
+    properties = layout_properties()
+    properties["elk.direction"] = "DOWN"
     return properties
 
 
@@ -312,7 +304,7 @@ class AutoLayoutELK:
                 # Generalizations are drawn backwards relative to other items
                 reverse = isinstance(presentation, GeneralizationItem)
 
-                # ELK defines locations relative to the containing node so they need to be adjusted to absolute
+                # ELK defines locations relative to the containing node, so they need to be adjusted to absolute
                 relative_location = _get_relative_location_from_container(
                     edge, node_positions, diagram
                 )
@@ -332,7 +324,7 @@ class AutoLayoutELK:
                 # apply points to the line.
                 matrix = presentation.matrix_i2c.inverse()
                 for handle, point in zip(presentation.handles(), points, strict=False):
-                    handle.pos = matrix.transform_point(*point)
+                    handle.pos = matrix.transform_point(*point)  # why can't I set directly?
 
                 for handle in (presentation.head, presentation.tail):
                     _reconnect(presentation, handle, diagram.connections)
@@ -537,7 +529,7 @@ def _(presentation: ElementPresentation):
             ],  # add label because this is a containing node that needs space for the label
         )
 
-        # add children to new node
+        # add children to the new node
         for child in presentation.children:
             _add_to_graph(graph, as_graph(child))
 
