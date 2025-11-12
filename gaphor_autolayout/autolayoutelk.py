@@ -320,7 +320,7 @@ class AutoLayoutELK:
                 # edges are defined relative to the container
                 points = _parse_edge_pos(edge["sections"], relative_location, reverse)
                 segment = Segment(presentation, diagram)
-                print(f"points: {points} and segment: {segment}")
+                print(f"edge {edge}, points: {points}, and segment: {segment}")
 
 
                 # setting the number of handles equal to the number of points
