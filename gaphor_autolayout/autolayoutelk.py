@@ -309,7 +309,7 @@ class AutoLayoutELK:
             if presentation := _presentation_for_object(diagram, edge):
                 presentation.orthogonal = False
 
-                # Generalizations are drawn backwards relative to other items
+                # Generalizations are drawn backwards relatively to other items
                 reverse = isinstance(presentation, GeneralizationItem)
 
                 # ELK defines locations relative to the containing node so they need to be adjusted to absolute
@@ -320,6 +320,8 @@ class AutoLayoutELK:
                 # edges are defined relative to the container
                 points = _parse_edge_pos(edge["sections"], relative_location, reverse)
                 segment = Segment(presentation, diagram)
+                print(f"points: {points} and segment: {segment}")
+
 
                 # setting the number of handles equal to the number of points
                 while len(points) > len(presentation.handles()):
