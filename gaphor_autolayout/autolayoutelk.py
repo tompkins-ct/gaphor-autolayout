@@ -329,11 +329,15 @@ class AutoLayoutELK:
                         segment.split_segment(0)
                     except ValueError:
                         log.error(f"Spitting {edge} failed.")
+                        raise ValueError(
+                            f"Cannot split with {len(points)} segments. Edge {edge} failed."
+                        )
                 while len(points) < len(presentation.handles()):
                     try:
                         segment.merge_segment(0)
                     except ValueError:
                         log.error(f"Cannot merge with 1 segment. Merging {edge} failed.")
+                        raise ValueError(f"Cannot merge with 1 segment. Edge {edge} failed.")
 
 
                 assert len(points) == len(presentation.handles())
