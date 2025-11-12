@@ -4,6 +4,6 @@
   "description": "Supporting runner scripts for autolayout with gaphor",
   "main": "./gaphor_autolayout/elkrunner.js",
   "dependencies": {
-    "elkjs": "^0.10.0"
+    "elkjs": "^0.11.0"
   }
 }

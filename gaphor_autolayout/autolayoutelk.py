@@ -209,11 +209,11 @@ class AutoLayoutELK:
 
         # render graph using ELKjs engine
         json_export = self.convert_graph()
-        log.info("Exported layout graph", json_export)
+        log.info(f"Exported layout graph: {json_export}")
         current_directory = os.path.dirname(os.path.abspath(__file__))
         elkjs_runner = os.path.join(current_directory, "elkrunner.js")
         rendered_graph_as_str = _run_nodejs_script(elkjs_runner, [json_export])
-        log.info("Elk rendered graph", rendered_graph_as_str)
+        log.info(f"Elk rendered graph {rendered_graph_as_str}")
         rendered_graph_as_dict = json.loads(rendered_graph_as_str)
 
         # get resulting node locations for use late
@@ -335,7 +335,7 @@ class AutoLayoutELK:
                     try:
                         segment.merge_segment(0)
                     except ValueError:
-                        log.error(f"Cannot merge with 1 segment. Merging {edge} failed.")
+                        log.error(f"Merging {edge} failed.")
                         raise ValueError(f"Cannot merge with 1 segment. Edge {edge} failed.")
 
 
