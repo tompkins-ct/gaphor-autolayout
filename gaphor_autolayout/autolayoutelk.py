@@ -325,9 +325,16 @@ class AutoLayoutELK:
 
                 # setting the number of handles equal to the number of points
                 while len(points) > len(presentation.handles()):
-                    segment.split_segment(0)
+                    try:
+                        segment.split_segment(0)
+                    except ValueError:
+                        log.error(f"Spitting {edge} failed.")
                 while len(points) < len(presentation.handles()):
-                    segment.merge_segment(0)
+                    try:
+                        segment.merge_segment(0)
+                    except ValueError:
+                        log.error(f"Cannot merge with 1 segment. Merging {edge} failed.")
+
 
                 assert len(points) == len(presentation.handles())
 
