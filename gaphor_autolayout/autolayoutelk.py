@@ -147,7 +147,7 @@ def layout_properties_normal() -> dict:
         "elk.edgeRouting": "ORTHOGONAL",  # explict default
         "elk.nodeLabels.placement": "H_CENTER V_TOP INSIDE",  # nominal gaphor placement for node labels
         "elk.nodeSize.constraints": "MINIMUM_SIZE_ACCOUNTS_FOR_PADDING",  # allows for resizing of nodes
-        "org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers": "20.0",  # layer to layer placement
+        "org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers": "25.0",  # edges in layer (room for arrow heads)
         "org.eclipse.elk.spacing.nodeSelfLoop": "20.0",  # space for arrows on self-loops,
         "org.eclipse.elk.font.size": "12",  # default font size for labels (not sure if this does anything)
     }
