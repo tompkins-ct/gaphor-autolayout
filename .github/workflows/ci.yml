@@ -16,6 +16,12 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Install Gaphor dependencies
+        run: >
+          dnf install -y gcc git pipx graphviz pkg-config python-launcher upx
+          mutter dbus-x11 gtksourceview5 libadwaita
+          cairo-gobject-devel
+
       - name: Install library
         run: uv sync --locked --all-extras --dev
 
