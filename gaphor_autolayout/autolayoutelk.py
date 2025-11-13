@@ -410,7 +410,7 @@ def _get_relative_location_from_container(edge, node_positions, diagram: Diagram
     if edge["container"] != "graph":
         owner_id = edge["container"]
         x_pos, y_pos = node_positions[owner_id]
-        parent_container = next(
+        parent_container: Presentation = next(
             (p for p in diagram.ownedPresentation if p.id == owner_id), None
         )
         if parent_container is not None:
@@ -436,7 +436,7 @@ def _get_relative_location_from_parent(parent_presentation: Presentation | None)
     return relative_location
 
 
-def _presentation_for_object(diagram: Diagram, obj) -> Presentation | None:
+def _presentation_for_object(diagram: Diagram, obj) -> Presentation | LinePresentation | None:
     """Get the diagram presentation for a given object"""
     if not obj.get("id"):
         return None

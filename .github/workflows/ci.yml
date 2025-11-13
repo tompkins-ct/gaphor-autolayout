@@ -1,0 +1,35 @@
+name: CI
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup UV
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Gaphor dependencies
+        run: >
+          sudo apt update && sudo apt install -y build-essential git pipx python3-venv graphviz pkg-config
+          dbus-x11 mutter libgtksourceview-5-dev gir1.2-gtksource-5 libadwaita-1-0 
+          libcairo2-dev upx-ucl libgirepository1.0-dev
+
+      - name: Install library
+        run: uv sync --locked --all-extras --dev
+
+      - name: Setup node
+        uses: actions/setup-node@v6
+
+      - name: install node packages
+        run: npm install
+
+      - name: run tests
+        run: uv run pytest
