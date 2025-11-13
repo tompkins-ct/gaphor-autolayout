@@ -20,7 +20,7 @@ jobs:
         run: >
           sudo apt update && sudo apt install -y build-essential git pipx python3-venv graphviz pkg-config
           dbus-x11 mutter libgtksourceview-5-dev gir1.2-gtksource-5 libadwaita-1-0 
-          libcairo2-dev upx-ucl gobject-introspection-1.0
+          libcairo2-dev upx-ucl
 
       - name: Install library
         run: uv sync --locked --all-extras --dev
