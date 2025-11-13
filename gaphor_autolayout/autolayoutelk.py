@@ -147,10 +147,9 @@ def layout_properties_normal() -> dict:
         "elk.edgeRouting": "ORTHOGONAL",  # explict default
         "elk.nodeLabels.placement": "H_CENTER V_TOP INSIDE",  # nominal gaphor placement for node labels
         "elk.nodeSize.constraints": "MINIMUM_SIZE_ACCOUNTS_FOR_PADDING",  # allows for resizing of nodes
-        "org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers": "20.0",  # layer to layer placement
+        "org.eclipse.elk.layered.spacing.edgeNodeBetweenLayers": "25.0",  # edges in layer (room for arrow heads)
         "org.eclipse.elk.spacing.nodeSelfLoop": "20.0",  # space for arrows on self-loops,
         "org.eclipse.elk.font.size": "12",  # default font size for labels (not sure if this does anything)
-        "elk.layered.wrapping.strategy" : "MULTI_EDGE",
     }
     return properties
 
@@ -169,7 +168,6 @@ def layout_properties_topdown() -> dict:
         "org.eclipse.elk.spacing.nodeSelfLoop": "20.0",  # space for arrows on self-loops,
         "org.eclipse.elk.font.size": "12",  # default font size for labels (not sure if this does anything)
         "elk.direction": "DOWN",
-        "elk.layered.wrapping.strategy": "MULTI_EDGE",
     }
     return properties
 
@@ -209,11 +207,11 @@ class AutoLayoutELK:
 
         # render graph using ELKjs engine
         json_export = self.convert_graph()
-        log.info("Exported layout graph", json_export)
+        log.info(f"Exported layout graph: {json_export}")
         current_directory = os.path.dirname(os.path.abspath(__file__))
         elkjs_runner = os.path.join(current_directory, "elkrunner.js")
         rendered_graph_as_str = _run_nodejs_script(elkjs_runner, [json_export])
-        log.info("Elk rendered graph", rendered_graph_as_str)
+        log.info(f"Elk rendered graph {rendered_graph_as_str}")
         rendered_graph_as_dict = json.loads(rendered_graph_as_str)
 
         # get resulting node locations for use late
@@ -309,7 +307,7 @@ class AutoLayoutELK:
             if presentation := _presentation_for_object(diagram, edge):
                 presentation.orthogonal = False
 
-                # Generalizations are drawn backwards relative to other items
+                # Generalizations are drawn backwards relatively to other items
                 reverse = isinstance(presentation, GeneralizationItem)
 
                 # ELK defines locations relative to the containing node so they need to be adjusted to absolute
@@ -321,11 +319,23 @@ class AutoLayoutELK:
                 points = _parse_edge_pos(edge["sections"], relative_location, reverse)
                 segment = Segment(presentation, diagram)
 
+
                 # setting the number of handles equal to the number of points
                 while len(points) > len(presentation.handles()):
-                    segment.split_segment(0)
+                    try:
+                        segment.split_segment(0)
+                    except ValueError:
+                        log.error(f"Spitting {edge} failed.")
+                        raise ValueError(
+                            f"Cannot split with {len(points)} segments. Edge {edge} failed."
+                        )
                 while len(points) < len(presentation.handles()):
-                    segment.merge_segment(0)
+                    try:
+                        segment.merge_segment(0)
+                    except ValueError:
+                        log.error(f"Merging {edge} failed.")
+                        raise ValueError(f"Cannot merge with 1 segment. Edge {edge} failed.")
+
 
                 assert len(points) == len(presentation.handles())
 
