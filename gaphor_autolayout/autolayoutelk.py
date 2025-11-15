@@ -3,6 +3,7 @@ import os
 import subprocess
 import logging
 import typing
+import asyncio
 
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
@@ -97,6 +98,226 @@ class Sections:
     outgoingSections: list
 
 
+async def open_elk_properties_dialog(properties: dict) -> dict | None:
+    """Open a dialog to configure custom ELK layout properties.
+
+    This function opens a small Libadwaita (Adw/Gtk4) dialog that allows the user
+    to inspect and edit key/value pairs in a dictionary. Users can:
+      - Edit existing keys and values
+      - Add new rows
+      - Remove rows
+      - Reset to the initially provided values
+
+    Behavior notes and fallbacks:
+      - The function is "best effort": if GI/GTK is not available, or no display
+        can be opened, the function logs a warning and returns ``None`` without
+        raising. This keeps headless test environments working.
+      - Values are parsed using ``json.loads`` when possible, so numbers,
+        booleans, ``null`` (None), arrays and objects are supported. If parsing
+        fails, the raw string is used.
+      - Duplicate keys are allowed while editing, but when applying the result
+        the last (bottom-most) occurrence wins.
+
+    The function is ``async`` and will offload the modal GTK loop to a worker
+    thread using ``asyncio.to_thread`` so it does not block the caller's event
+    loop.
+    """
+
+    log = logging.getLogger(__name__)
+
+    initial = dict(properties or {})
+
+    def _parse_value(text: str):
+        text = text if text is not None else ""
+        # Strip surrounding whitespace; allow unquoted barewords to be treated
+        # as strings unless they parse as JSON literals
+        try:
+            return json.loads(text)
+        except Exception:
+            return text
+
+    def _format_value(value):
+        # Provide a readable string in the entry for non-strings
+        if isinstance(value, (int, float)):
+            return str(value)
+        if value is True:
+            return "true"
+        if value is False:
+            return "false"
+        if value is None:
+            return "null"
+        if isinstance(value, (list, dict)):
+            try:
+                return json.dumps(value)
+            except Exception:
+                return str(value)
+        return str(value)
+
+    def _run_dialog_sync() -> dict | None:
+        try:
+            import os as _os
+            # Require GI at runtime only.
+            import gi  # type: ignore
+
+            try:
+                gi.require_version("Adw", "1")
+                gi.require_version("Gtk", "4.0")
+            except Exception:
+                # Older gi may use "Gtk", "4.0"; attempt anyway
+                pass
+
+            from gi.repository import Adw, Gtk, GLib  # type: ignore
+        except Exception as e:  # pragma: no cover - GUI not available in tests
+            log.warning("Libadwaita/Gtk not available for properties dialog: %s", e)
+            return None
+
+        # If there is no display (headless), bail out gracefully
+        if not _os.environ.get("DISPLAY") and not _os.environ.get("WAYLAND_DISPLAY"):
+            log.info("No DISPLAY/WAYLAND_DISPLAY set; skipping properties dialog.")
+            return None
+
+        # Ensure Adwaita styling is initialized
+        Adw.init()
+
+        result_container: dict[str, object] | None = None
+
+        # Build UI
+        window = Adw.Window()
+        window.set_title("ELK Layout Properties")
+        window.set_default_size(520, 420)
+
+        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
+        window.set_content(vbox)
+
+        # Header with actions
+        header = Adw.HeaderBar()
+        vbox.append(header)
+
+        add_button = Gtk.Button.new_from_icon_name("list-add-symbolic")
+        add_button.set_tooltip_text("Add property")
+        header.pack_start(add_button)
+
+        reset_button = Gtk.Button.new_with_mnemonic("_Reset")
+        reset_button.set_tooltip_text("Reset to initial values")
+        header.pack_start(reset_button)
+
+        # Main list
+        scrolled = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
+        vbox.append(scrolled)
+
+        listbox = Gtk.ListBox()
+        listbox.set_selection_mode(Gtk.SelectionMode.NONE)
+        scrolled.set_child(listbox)
+
+        def _add_row(k: str = "", v: object = ""):
+            row = Gtk.ListBoxRow()
+            hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            row.set_child(hb)
+
+            key_entry = Gtk.Entry()
+            key_entry.set_hexpand(True)
+            key_entry.set_placeholder_text("key")
+            key_entry.set_text(k or "")
+
+            value_entry = Gtk.Entry()
+            value_entry.set_hexpand(True)
+            value_entry.set_placeholder_text("value (JSON or text)")
+            value_entry.set_text(_format_value(v))
+
+            remove_btn = Gtk.Button.new_from_icon_name("user-trash-symbolic")
+            remove_btn.set_tooltip_text("Remove this property")
+
+            def _remove(_btn):
+                listbox.remove(row)
+
+            remove_btn.connect("clicked", _remove)
+
+            hb.append(Gtk.Label(label="Key", xalign=0))
+            hb.append(key_entry)
+            hb.append(Gtk.Label(label="Value", xalign=0))
+            hb.append(value_entry)
+            hb.append(remove_btn)
+
+            # Store for collection later
+            row._key_entry = key_entry  # type: ignore[attr-defined]
+            row._value_entry = value_entry  # type: ignore[attr-defined]
+
+            listbox.append(row)
+
+        # Populate with initial properties
+        for k, v in initial.items():
+            _add_row(str(k), v)
+
+        # Add a blank row for convenience
+        _add_row()
+
+        def _on_add(_btn):
+            _add_row()
+
+        add_button.connect("clicked", _on_add)
+
+        def _on_reset(_btn):
+            # Clear all rows and repopulate
+            for child in list(listbox):  # type: ignore[arg-type]
+                listbox.remove(child)
+            for k, v in initial.items():
+                _add_row(str(k), v)
+            _add_row()
+
+        reset_button.connect("clicked", _on_reset)
+
+        # Action buttons at the bottom
+        action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        action_box.set_halign(Gtk.Align.END)
+        vbox.append(action_box)
+
+        cancel_btn = Gtk.Button.new_with_mnemonic("_Cancel")
+        apply_btn = Gtk.Button.new_with_mnemonic("_Apply")
+        action_box.append(cancel_btn)
+        action_box.append(apply_btn)
+
+        loop = GLib.MainLoop()
+
+        def _collect_and_close(accept: bool):
+            nonlocal result_container
+            if accept:
+                new_props: dict[str, object] = {}
+                # Iterate all rows and build dict; last occurrence wins
+                for row in listbox:  # type: ignore[assignment]
+                    try:
+                        key = row._key_entry.get_text().strip()  # type: ignore[attr-defined]
+                        val_text = row._value_entry.get_text()  # type: ignore[attr-defined]
+                    except Exception:
+                        continue
+                    if key:
+                        new_props[key] = _parse_value(val_text)
+                result_container = new_props
+            else:
+                result_container = None
+            loop.quit()
+            window.close()
+
+        cancel_btn.connect("clicked", lambda _b: _collect_and_close(False))
+        apply_btn.connect("clicked", lambda _b: _collect_and_close(True))
+        window.connect("close-request", lambda *_: (_collect_and_close(False), True)[1])
+
+        window.present()
+        try:
+            loop.run()
+        finally:
+            try:
+                loop.quit()
+            except Exception:
+                pass
+        return result_container
+
+    # Run the blocking GTK loop in a thread so we can await it cleanly
+    try:
+        return await asyncio.to_thread(_run_dialog_sync)
+    except Exception as e:  # pragma: no cover - safety net
+        log.exception("Failed to open ELK properties dialog: %s", e)
+        return None
+
 class AutoLayoutELKService(Service, ActionProvider):
     """Service provider for Autolayout using ELK"""
 
@@ -106,6 +327,9 @@ class AutoLayoutELKService(Service, ActionProvider):
         if tools_menu:
             tools_menu.add_actions(self)
         self.dump_gv = dump_gv
+
+        # Storage for user-configured custom properties
+        self._custom_layout_properties: dict = layout_properties_normal()
 
     def shutdown(self):
         pass
@@ -129,6 +353,64 @@ class AutoLayoutELKService(Service, ActionProvider):
         if current_diagram := self.diagrams.get_current_diagram():
             layout_props = layout_properties_topdown()
             self.layout(current_diagram, layout_props)
+
+    @action(
+        name="auto-layout-ELK-custom-open",
+        label=gettext("Auto Layout ELK: Configure Custom Properties…"),
+    )
+    def open_custom_layout_properties(self):
+        """Open a dialog to configure custom ELK layout properties.
+
+        The dialog (if provided) is initialized with `layout_properties_normal()`
+        and should return a dict with properties or None if canceled.
+        """
+
+        initial = self._custom_layout_properties or layout_properties_normal()
+
+        result: dict | None = None
+
+        # If a dialog provider was injected (mainly for tests), use it
+        dlg = getattr(self, "layout_properties_dialog", None)
+        if dlg and hasattr(dlg, "open"):
+            try:
+                result = dlg.open(initial_props=initial)
+            except TypeError:
+                # Backward-compat without keyword
+                result = dlg.open(initial)
+        else:
+            # Fall back to the built-in async dialog and run it to completion
+            try:
+                try:
+                    # If no loop is running, run the coroutine directly
+                    loop = asyncio.get_running_loop()
+                    running = loop.is_running()
+                except RuntimeError:
+                    running = False
+                if not running:
+                    result = asyncio.run(open_elk_properties_dialog(initial))
+                else:
+                    # If we're already inside an event loop, this action should not block.
+                    # In that case, skip opening the dialog to avoid deadlocks.
+                    log.info("Event loop running; skipping synchronous properties dialog.")
+                    result = None
+            except Exception as e:
+                log.exception("Failed to obtain custom layout properties: %s", e)
+                result = None
+
+        if isinstance(result, dict):
+            self._custom_layout_properties = result
+        else:
+            log.info("Custom layout properties dialog cancelled or returned no data.")
+
+    @action(
+        name="auto-layout-ELK-custom-apply",
+        label=gettext("Auto Layout ELK: Custom"),
+    )
+    def apply_custom_layout_properties(self):
+        """Apply previously configured custom properties to the current diagram."""
+        if current_diagram := self.diagrams.get_current_diagram():
+            props = self._custom_layout_properties or layout_properties_normal()
+            self.layout(current_diagram, props)
 
     def layout(self, diagram: Diagram, layout_props):
         auto_layout = AutoLayoutELK(self.event_manager)
@@ -168,6 +450,7 @@ def layout_properties_topdown() -> dict:
         "org.eclipse.elk.spacing.nodeSelfLoop": "20.0",  # space for arrows on self-loops,
         "org.eclipse.elk.font.size": "12",  # default font size for labels (not sure if this does anything)
         "elk.direction": "DOWN",
+        "bk.fixedAlignment": "BALANCED", # shifts vertical alignment of layer to even edge path lengths.
     }
     return properties
 
