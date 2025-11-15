@@ -1,4 +1,5 @@
 import pytest
+import gaphor_autolayout.autolayoutelk as autolayoutelk
 
 from gaphor.core.eventmanager import EventManager
 from gaphor.core.modeling.elementdispatcher import ElementDispatcher
@@ -109,3 +110,27 @@ def test_apply_custom_properties_calls_layout_with_custom(diagram, event_manager
     # ASSERT: layout called with current diagram and stored custom props
     assert called["diagram"] is diagram
     assert called["props"] == fake_props
+
+
+def test_open_custom_properties_uses_default_dialog(diagram, event_manager, monkeypatch):
+    # Arrange a fake dialog class to replace ElkPropertiesDialog
+    captured = {}
+
+    class FakeElkDlg:
+        def open(self, initial_props=None):
+            captured["initial"] = dict(initial_props or {})
+            return {"elk.algorithm": "layered", "custom": "ok"}
+
+    monkeypatch.setattr(autolayoutelk, "ElkPropertiesDialog", FakeElkDlg)
+
+    service = autolayoutelk.AutoLayoutELKService(
+        event_manager, FakeDiagrams(diagram), tools_menu=None, dump_gv=False
+    )
+
+    # Act: call without injecting a dialog provider so the service uses default
+    service.open_custom_layout_properties()
+
+    # Assert: default dialog was constructed and received initial normal props,
+    # and the returned dict is stored on the service
+    assert captured["initial"] == autolayoutelk.layout_properties_normal()
+    assert service._custom_layout_properties == {"elk.algorithm": "layered", "custom": "ok"}

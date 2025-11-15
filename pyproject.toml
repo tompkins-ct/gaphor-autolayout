@@ -26,6 +26,7 @@ addopts = [
 requires-poetry = ">=2.0"
 include = [
     {path = "gaphor_autolayout/elkrunner.js", format = ["sdist", "wheel"]},
+    {path = "gaphor_autolayout/ui/elk_properties_dialog.ui", format = ["sdist", "wheel"]},
     {path = "package.json", format = ["sdist", "wheel"]},
 ]
 

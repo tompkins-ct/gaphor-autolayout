@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="adw" version="1"/>
+
+  <!-- ELK Properties Dialog UI -->
+  <object class="AdwWindow" id="elk_props_window">
+    <property name="title">ELK Layout Properties</property>
+    <property name="default-width">520</property>
+    <property name="default-height">420</property>
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
+        <property name="spacing">6</property>
+        <property name="margin-start">12</property>
+        <property name="margin-end">12</property>
+        <property name="margin-top">12</property>
+        <property name="margin-bottom">12</property>
+
+        <!-- Header with actions -->
+        <child>
+          <object class="AdwHeaderBar">
+            <child type="start">
+              <object class="GtkButton" id="add_button">
+                <property name="icon-name">list-add-symbolic</property>
+                <property name="tooltip-text">Add property</property>
+              </object>
+            </child>
+            <child type="start">
+              <object class="GtkButton" id="reset_button">
+                <property name="label">_Reset</property>
+                <property name="use-underline">true</property>
+                <property name="tooltip-text">Reset to initial values</property>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <!-- Main list -->
+        <child>
+          <object class="GtkScrolledWindow">
+            <property name="hexpand">true</property>
+            <property name="vexpand">true</property>
+            <child>
+              <object class="GtkListBox" id="props_listbox">
+                <property name="selection-mode">none</property>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <!-- Action buttons at the bottom -->
+        <child>
+          <object class="GtkBox">
+            <property name="orientation">horizontal</property>
+            <property name="spacing">6</property>
+            <property name="halign">end</property>
+            <child>
+              <object class="GtkButton" id="cancel_btn">
+                <property name="label">_Cancel</property>
+                <property name="use-underline">true</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton" id="apply_btn">
+                <property name="label">_Apply</property>
+                <property name="use-underline">true</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>

@@ -34,6 +34,7 @@ from gaphor.UML.classes import AssociationItem, DependencyItem, GeneralizationIt
 
 log = logging.getLogger(__name__)
 
+
 @dataclass
 class BaseItem:
     """Base item type for JSON output"""
@@ -98,46 +99,27 @@ class Sections:
     outgoingSections: list
 
 
-async def open_elk_properties_dialog(properties: dict) -> dict | None:
-    """Open a dialog to configure custom ELK layout properties.
+class ElkPropertiesDialog:
+    """Dialog class to configure custom ELK layout properties.
 
-    This function opens a small Libadwaita (Adw/Gtk4) dialog that allows the user
-    to inspect and edit key/value pairs in a dictionary. Users can:
-      - Edit existing keys and values
-      - Add new rows
-      - Remove rows
-      - Reset to the initially provided values
-
-    Behavior notes and fallbacks:
-      - The function is "best effort": if GI/GTK is not available, or no display
-        can be opened, the function logs a warning and returns ``None`` without
-        raising. This keeps headless test environments working.
-      - Values are parsed using ``json.loads`` when possible, so numbers,
-        booleans, ``null`` (None), arrays and objects are supported. If parsing
-        fails, the raw string is used.
-      - Duplicate keys are allowed while editing, but when applying the result
-        the last (bottom-most) occurrence wins.
-
-    The function is ``async`` and will offload the modal GTK loop to a worker
-    thread using ``asyncio.to_thread`` so it does not block the caller's event
-    loop.
+    Encapsulates UI creation via Gtk.Builder and exposes a synchronous
+    ``open()`` method that returns a dict of properties or ``None`` if the
+    dialog is canceled or unavailable.
     """
 
-    log = logging.getLogger(__name__)
+    def __init__(self) -> None:
+        self.log = logging.getLogger(__name__)
 
-    initial = dict(properties or {})
-
+    @staticmethod
     def _parse_value(text: str):
         text = text if text is not None else ""
-        # Strip surrounding whitespace; allow unquoted barewords to be treated
-        # as strings unless they parse as JSON literals
         try:
             return json.loads(text)
         except Exception:
             return text
 
+    @staticmethod
     def _format_value(value):
-        # Provide a readable string in the entry for non-strings
         if isinstance(value, (int, float)):
             return str(value)
         if value is True:
@@ -153,61 +135,60 @@ async def open_elk_properties_dialog(properties: dict) -> dict | None:
                 return str(value)
         return str(value)
 
-    def _run_dialog_sync() -> dict | None:
+    def open(self, initial_props: dict | None = None) -> dict | None:
+        log = self.log
         try:
-            import os as _os
-            # Require GI at runtime only.
             import gi  # type: ignore
-
             try:
                 gi.require_version("Adw", "1")
                 gi.require_version("Gtk", "4.0")
             except Exception:
-                # Older gi may use "Gtk", "4.0"; attempt anyway
                 pass
-
             from gi.repository import Adw, Gtk, GLib  # type: ignore
         except Exception as e:  # pragma: no cover - GUI not available in tests
             log.warning("Libadwaita/Gtk not available for properties dialog: %s", e)
             return None
 
-        # If there is no display (headless), bail out gracefully
-        if not _os.environ.get("DISPLAY") and not _os.environ.get("WAYLAND_DISPLAY"):
+        if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
             log.info("No DISPLAY/WAYLAND_DISPLAY set; skipping properties dialog.")
             return None
 
-        # Ensure Adwaita styling is initialized
-        Adw.init()
-
+        initial = dict(initial_props or {})
         result_container: dict[str, object] | None = None
 
-        # Build UI
-        window = Adw.Window()
-        window.set_title("ELK Layout Properties")
-        window.set_default_size(520, 420)
+        from importlib import resources as _resources
+        try:
+            with _resources.as_file(
+                _resources.files("gaphor_autolayout").joinpath("ui/elk_properties_dialog.ui")
+            ) as _p:
+                ui_path = str(_p)
+        except Exception as e:
+            log.warning("Could not locate UI file for ELK properties dialog: %s", e)
+            return None
 
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, margin_top=12, margin_bottom=12, margin_start=12, margin_end=12)
-        window.set_content(vbox)
+        builder = Gtk.Builder()
+        try:
+            builder.add_from_file(ui_path)
+        except Exception as e:
+            log.warning("Failed to load UI file '%s': %s", ui_path, e)
+            return None
 
-        # Header with actions
-        header = Adw.HeaderBar()
-        vbox.append(header)
+        window = builder.get_object("elk_props_window")
+        if not isinstance(window, Adw.Window):
+            log.warning("UI did not provide an Adw.Window with id 'elk_props_window'")
+            return None
 
-        add_button = Gtk.Button.new_from_icon_name("list-add-symbolic")
-        add_button.set_tooltip_text("Add property")
-        header.pack_start(add_button)
+        add_button = builder.get_object("add_button")
+        reset_button = builder.get_object("reset_button")
+        listbox = builder.get_object("props_listbox")
+        cancel_btn = builder.get_object("cancel_btn")
+        apply_btn = builder.get_object("apply_btn")
 
-        reset_button = Gtk.Button.new_with_mnemonic("_Reset")
-        reset_button.set_tooltip_text("Reset to initial values")
-        header.pack_start(reset_button)
+        if not all([add_button, reset_button, listbox, cancel_btn, apply_btn]):
+            log.warning("UI missing required widgets (add/reset/list/cancel/apply)")
+            return None
 
-        # Main list
-        scrolled = Gtk.ScrolledWindow(hexpand=True, vexpand=True)
-        vbox.append(scrolled)
-
-        listbox = Gtk.ListBox()
-        listbox.set_selection_mode(Gtk.SelectionMode.NONE)
-        scrolled.set_child(listbox)
+        listbox = typing.cast(Gtk.ListBox, listbox)
 
         def _add_row(k: str = "", v: object = ""):
             row = Gtk.ListBoxRow()
@@ -222,7 +203,7 @@ async def open_elk_properties_dialog(properties: dict) -> dict | None:
             value_entry = Gtk.Entry()
             value_entry.set_hexpand(True)
             value_entry.set_placeholder_text("value (JSON or text)")
-            value_entry.set_text(_format_value(v))
+            value_entry.set_text(self._format_value(v))
 
             remove_btn = Gtk.Button.new_from_icon_name("user-trash-symbolic")
             remove_btn.set_tooltip_text("Remove this property")
@@ -238,17 +219,13 @@ async def open_elk_properties_dialog(properties: dict) -> dict | None:
             hb.append(value_entry)
             hb.append(remove_btn)
 
-            # Store for collection later
             row._key_entry = key_entry  # type: ignore[attr-defined]
             row._value_entry = value_entry  # type: ignore[attr-defined]
 
             listbox.append(row)
 
-        # Populate with initial properties
         for k, v in initial.items():
             _add_row(str(k), v)
-
-        # Add a blank row for convenience
         _add_row()
 
         def _on_add(_btn):
@@ -257,7 +234,6 @@ async def open_elk_properties_dialog(properties: dict) -> dict | None:
         add_button.connect("clicked", _on_add)
 
         def _on_reset(_btn):
-            # Clear all rows and repopulate
             for child in list(listbox):  # type: ignore[arg-type]
                 listbox.remove(child)
             for k, v in initial.items():
@@ -266,15 +242,41 @@ async def open_elk_properties_dialog(properties: dict) -> dict | None:
 
         reset_button.connect("clicked", _on_reset)
 
-        # Action buttons at the bottom
-        action_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        action_box.set_halign(Gtk.Align.END)
-        vbox.append(action_box)
+        # Ensure the window is attached to the running Gtk.Application and has a
+        # proper transient parent so it reliably shows up when used as a Gaphor
+        # plugin (otherwise a detached toplevel may not be presented by the WM).
+        try:
+            app = Gtk.Application.get_default()
+            if app is not None:
+                # Attach window to app if not already
+                try:
+                    if window.get_application() is None:
+                        window.set_application(app)
+                except Exception:
+                    # Older Adw/Gtk combinations may not expose get_application
+                    window.set_application(app)
 
-        cancel_btn = Gtk.Button.new_with_mnemonic("_Cancel")
-        apply_btn = Gtk.Button.new_with_mnemonic("_Apply")
-        action_box.append(cancel_btn)
-        action_box.append(apply_btn)
+                # Set a transient parent to the active (or first) app window
+                parent = getattr(app, "get_active_window", lambda: None)()
+                if parent is None:
+                    # Fallback: pick the first window if available
+                    try:
+                        wins = list(app.get_windows())  # type: ignore[attr-defined]
+                        parent = wins[0] if wins else None
+                    except Exception:
+                        parent = None
+                if parent is not None:
+                    try:
+                        window.set_transient_for(parent)
+                    except Exception:
+                        pass
+        except Exception as e:
+            log.debug("Could not attach dialog to application window: %s", e)
+
+        try:
+            window.set_modal(True)
+        except Exception:
+            pass
 
         loop = GLib.MainLoop()
 
@@ -282,7 +284,6 @@ async def open_elk_properties_dialog(properties: dict) -> dict | None:
             nonlocal result_container
             if accept:
                 new_props: dict[str, object] = {}
-                # Iterate all rows and build dict; last occurrence wins
                 for row in listbox:  # type: ignore[assignment]
                     try:
                         key = row._key_entry.get_text().strip()  # type: ignore[attr-defined]
@@ -290,7 +291,7 @@ async def open_elk_properties_dialog(properties: dict) -> dict | None:
                     except Exception:
                         continue
                     if key:
-                        new_props[key] = _parse_value(val_text)
+                        new_props[key] = self._parse_value(val_text)
                 result_container = new_props
             else:
                 result_container = None
@@ -309,14 +310,25 @@ async def open_elk_properties_dialog(properties: dict) -> dict | None:
                 loop.quit()
             except Exception:
                 pass
+
         return result_container
 
-    # Run the blocking GTK loop in a thread so we can await it cleanly
+
+async def open_elk_properties_dialog(properties: dict) -> dict | None:
+    """Compatibility shim that opens the ELK properties dialog asynchronously.
+
+    Delegates to ``ElkPropertiesDialog`` and runs it in a worker thread so it
+    does not block the caller's asyncio loop.
+    """
+    dialog = ElkPropertiesDialog()
     try:
-        return await asyncio.to_thread(_run_dialog_sync)
+        return await asyncio.to_thread(dialog.open, dict(properties or {}))
     except Exception as e:  # pragma: no cover - safety net
-        log.exception("Failed to open ELK properties dialog: %s", e)
+        logging.getLogger(__name__).exception(
+            "Failed to open ELK properties dialog: %s", e
+        )
         return None
+
 
 class AutoLayoutELKService(Service, ActionProvider):
     """Service provider for Autolayout using ELK"""
@@ -378,21 +390,10 @@ class AutoLayoutELKService(Service, ActionProvider):
                 # Backward-compat without keyword
                 result = dlg.open(initial)
         else:
-            # Fall back to the built-in async dialog and run it to completion
+            # Use the class-based dialog by default (preferred in Gaphor)
             try:
-                try:
-                    # If no loop is running, run the coroutine directly
-                    loop = asyncio.get_running_loop()
-                    running = loop.is_running()
-                except RuntimeError:
-                    running = False
-                if not running:
-                    result = asyncio.run(open_elk_properties_dialog(initial))
-                else:
-                    # If we're already inside an event loop, this action should not block.
-                    # In that case, skip opening the dialog to avoid deadlocks.
-                    log.info("Event loop running; skipping synchronous properties dialog.")
-                    result = None
+                dlg = ElkPropertiesDialog()
+                result = dlg.open(initial_props=initial)
             except Exception as e:
                 log.exception("Failed to obtain custom layout properties: %s", e)
                 result = None
@@ -450,7 +451,7 @@ def layout_properties_topdown() -> dict:
         "org.eclipse.elk.spacing.nodeSelfLoop": "20.0",  # space for arrows on self-loops,
         "org.eclipse.elk.font.size": "12",  # default font size for labels (not sure if this does anything)
         "elk.direction": "DOWN",
-        "bk.fixedAlignment": "BALANCED", # shifts vertical alignment of layer to even edge path lengths.
+        "bk.fixedAlignment": "BALANCED",  # shifts vertical alignment of layer to even edge path lengths.
     }
     return properties
 
@@ -508,7 +509,7 @@ class AutoLayoutELK:
         """Generate a graph using the supplied diagram"""
         for presentation in diagram.ownedPresentation:
             if (
-                presentation.parent
+                    presentation.parent
             ):  # skipping items with parents (e.g., addressed recursively instead)
                 continue
             _add_to_graph(self.graph, as_graph(presentation))
@@ -518,12 +519,12 @@ class AutoLayoutELK:
         return json.dumps(self.graph, default=lambda o: getattr(o, "__dict__", str(o)))
 
     def apply_layout(
-        self,
-        diagram: Diagram,
-        updated_layout: dict,
-        node_positions: dict,
-        parent_presentation=None,
-        height=None,
+            self,
+            diagram: Diagram,
+            updated_layout: dict,
+            node_positions: dict,
+            parent_presentation=None,
+            height=None,
     ):
         """Apply the ELKjs layout to the Gaphor diagram."""
         if height is None:
@@ -549,8 +550,8 @@ class AutoLayoutELK:
                     presentation.matrix.set(x0=node["x"], y0=node["y"])
 
                     if (
-                        can_group(parent_presentation, presentation)
-                        and parent_presentation is not None
+                            can_group(parent_presentation, presentation)
+                            and parent_presentation is not None
                     ):
                         group(parent_presentation, presentation)
 
@@ -602,7 +603,6 @@ class AutoLayoutELK:
                 points = _parse_edge_pos(edge["sections"], relative_location, reverse)
                 segment = Segment(presentation, diagram)
 
-
                 # setting the number of handles equal to the number of points
                 while len(points) > len(presentation.handles()):
                     try:
@@ -618,7 +618,6 @@ class AutoLayoutELK:
                     except ValueError:
                         log.error(f"Merging {edge} failed.")
                         raise ValueError(f"Cannot merge with 1 segment. Edge {edge} failed.")
-
 
                 assert len(points) == len(presentation.handles())
 
@@ -744,7 +743,7 @@ def _strip_quotes(s):
 
 
 def _parse_edge_pos(
-    sections: dict, relative_location: list[float], reverse: bool
+        sections: dict, relative_location: list[float], reverse: bool
 ) -> list[Point]:
     """Handle points are defined relative to the containing node and adjusted accordingly"""
     points = []
@@ -793,7 +792,7 @@ def _(presentation: ElementPresentation):
             "elk.nodeLabels.placement": "[H_CENTER V_TOP INSIDE]",
             "elk.padding": "[left=10, top=30, right=10, bottom=30]",
             "org.eclipse.elk.nodeSize.minimum": (
-                "(" + str(min_width) + ", " + str(min_height) + ")"
+                    "(" + str(min_width) + ", " + str(min_height) + ")"
             ),
             "org.eclipse.elk.nodeSize.constraints": "MINIMUM_SIZE",
         }
@@ -876,10 +875,10 @@ def _(presentation: LinePresentation):
         layout_properties["org.eclipse.elk.edge.type"] = "ASSOCIATION"
 
     if (
-        head_connection
-        and next(as_graph(head_connection.connected), None)
-        and tail_connection
-        and next(as_graph(tail_connection.connected), None)
+            head_connection
+            and next(as_graph(head_connection.connected), None)
+            and tail_connection
+            and next(as_graph(tail_connection.connected), None)
     ):
         # extra_args = {}
         # if as_cluster(head_connection.connected):
