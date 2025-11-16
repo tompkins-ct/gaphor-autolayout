@@ -107,8 +107,9 @@ class ElkPropertiesDialog:
     dialog is canceled or unavailable.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, main_window) -> None:
         self.log = logging.getLogger(__name__)
+        self.main_window = main_window
 
     @staticmethod
     def _parse_value(text: str):
@@ -245,33 +246,7 @@ class ElkPropertiesDialog:
         # Ensure the window is attached to the running Gtk.Application and has a
         # proper transient parent so it reliably shows up when used as a Gaphor
         # plugin (otherwise a detached toplevel may not be presented by the WM).
-        try:
-            app = Gtk.Application.get_default()
-            if app is not None:
-                # Attach window to app if not already
-                try:
-                    if window.get_application() is None:
-                        window.set_application(app)
-                except Exception:
-                    # Older Adw/Gtk combinations may not expose get_application
-                    window.set_application(app)
-
-                # Set a transient parent to the active (or first) app window
-                parent = getattr(app, "get_active_window", lambda: None)()
-                if parent is None:
-                    # Fallback: pick the first window if available
-                    try:
-                        wins = list(app.get_windows())  # type: ignore[attr-defined]
-                        parent = wins[0] if wins else None
-                    except Exception:
-                        parent = None
-                if parent is not None:
-                    try:
-                        window.set_transient_for(parent)
-                    except Exception:
-                        pass
-        except Exception as e:
-            log.debug("Could not attach dialog to application window: %s", e)
+        window.set_transient_for(self.main_window.window)
 
         try:
             window.set_modal(True)
@@ -314,13 +289,13 @@ class ElkPropertiesDialog:
         return result_container
 
 
-async def open_elk_properties_dialog(properties: dict) -> dict | None:
+async def open_elk_properties_dialog(properties: dict, main_window: None) -> dict | None:
     """Compatibility shim that opens the ELK properties dialog asynchronously.
 
     Delegates to ``ElkPropertiesDialog`` and runs it in a worker thread so it
     does not block the caller's asyncio loop.
     """
-    dialog = ElkPropertiesDialog()
+    dialog = ElkPropertiesDialog(main_window)
     try:
         return await asyncio.to_thread(dialog.open, dict(properties or {}))
     except Exception as e:  # pragma: no cover - safety net
@@ -333,12 +308,13 @@ async def open_elk_properties_dialog(properties: dict) -> dict | None:
 class AutoLayoutELKService(Service, ActionProvider):
     """Service provider for Autolayout using ELK"""
 
-    def __init__(self, event_manager, diagrams, tools_menu=None, dump_gv=False):
+    def __init__(self, event_manager, diagrams, tools_menu=None, dump_gv=False, main_window=None):
         self.event_manager = event_manager
         self.diagrams = diagrams
         if tools_menu:
             tools_menu.add_actions(self)
         self.dump_gv = dump_gv
+        self.main_window = main_window
 
         # Storage for user-configured custom properties
         self._custom_layout_properties: dict = layout_properties_normal()
@@ -392,7 +368,7 @@ class AutoLayoutELKService(Service, ActionProvider):
         else:
             # Use the class-based dialog by default (preferred in Gaphor)
             try:
-                dlg = ElkPropertiesDialog()
+                dlg = ElkPropertiesDialog(main_window=self.main_window)
                 result = dlg.open(initial_props=initial)
             except Exception as e:
                 log.exception("Failed to obtain custom layout properties: %s", e)

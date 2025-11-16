@@ -29,7 +29,7 @@ class FakeDiagrams:
 
 
 class FakeDialog:
-    def __init__(self, to_return: dict | None):
+    def __init__(self, to_return: dict | None, main_window=None):
         self._to_return = to_return
         self.received_initial = None
 
@@ -117,6 +117,9 @@ def test_open_custom_properties_uses_default_dialog(diagram, event_manager, monk
     captured = {}
 
     class FakeElkDlg:
+        def __init__(self, to_return: dict | None, main_window=None):
+            pass
+
         def open(self, initial_props=None):
             captured["initial"] = dict(initial_props or {})
             return {"elk.algorithm": "layered", "custom": "ok"}
