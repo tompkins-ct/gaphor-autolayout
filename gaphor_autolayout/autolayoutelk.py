@@ -252,15 +252,22 @@ class ElkPropertiesDialog(UIComponent):
                 result_container = new_props
             else:
                 result_container = None
-            try:
-                self._loop.quit()
-            except Exception:
-                pass
-            try:
-                self._window.close()
-            finally:
-                self._window = None
-                self._loop = None
+
+            if self._loop:
+                try:
+                    self._loop.quit()
+                    # self._loop = None  # Clear it later to avoid race in concurrent calls
+                except Exception:
+                    pass
+
+            if self._window:
+                try:
+                    win = self._window
+                    # Clear it before closing to avoid re-entry from "close-request"
+                    self._window = None
+                    win.close()
+                except Exception:
+                    pass
 
         cancel_btn.connect("clicked", lambda _b: _collect_and_close(False))
         apply_btn.connect("clicked", lambda _b: _collect_and_close(True))
