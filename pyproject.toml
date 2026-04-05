@@ -5,7 +5,6 @@ description = "Auto layout diagrams using ELK"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "gaphor>=3.2.0",
 ]
 
 [build-system]
@@ -35,6 +34,6 @@ include = [
 [dependency-groups]
 dev = [
     "gaphas>=4.1.1",
-    "gaphor>=3.0.0",
+    "gaphor>=3.2.0",
     "pytest>=8.3.4",
 ]
