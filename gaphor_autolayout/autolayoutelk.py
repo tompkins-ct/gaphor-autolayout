@@ -236,11 +236,12 @@ class ElkPropertiesDialog(UIComponent):
         else:
             self._result = None
 
-        if self._loop and self._loop.is_running():
-            self._loop.quit()
-
         if self._window:
             self._window.set_visible(False)
+
+        if self._loop and self._loop.is_running():
+            loop = self._loop
+            GLib.idle_add(lambda: (loop.quit(), False)[1])
 
     def open(self, initial_props: dict | None = None) -> dict | None:
         if not (Gdk.Display.get_default() or os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
