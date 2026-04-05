@@ -115,18 +115,6 @@ class ElkPropertiesDialog(UIComponent):
     dialog is canceled or unavailable.
     """
 
-    def __init__(self, main_window) -> None:
-        self.log = logging.getLogger(__name__)
-        self.parent = main_window.window
-        # Keep references so we can implement UIComponent.close()
-        self._window: Gtk.Window | None = None
-        self._loop = None
-
-        self.window_builder = Gtk.Builder()
-        self.window_builder.add_from_string(
-            translated_ui_string("gaphor_autolayout", "ui/elk_properties_dialog.ui")
-        )
-
     @staticmethod
     def _parse_value(text: str):
         text = text if text is not None else ""
@@ -152,140 +140,137 @@ class ElkPropertiesDialog(UIComponent):
                 return str(value)
         return str(value)
 
-    def open(self, initial_props: dict | None = None) -> dict | None:
+    def __init__(self, main_window) -> None:
+        self.log = logging.getLogger(__name__)
+        self.parent = main_window.window
+        # Keep references so we can implement UIComponent.close()
+        self._window: Gtk.Window | None = None
+        self._loop: GLib.MainLoop | None = None
+        self._result: dict[str, object] | None = None
 
+        self.window_builder = Gtk.Builder()
+        self.window_builder.add_from_string(
+            translated_ui_string("gaphor_autolayout", "ui/elk_properties_dialog.ui")
+        )
+
+        self._window = self.window_builder.get_object("elk_props_window")
+        self._add_button = self.window_builder.get_object("add_button")
+        self._reset_button = self.window_builder.get_object("reset_button")
+        self._listbox = typing.cast(Gtk.ListBox, self.window_builder.get_object("props_listbox"))
+        self._cancel_btn = self.window_builder.get_object("cancel_btn")
+        self._apply_btn = self.window_builder.get_object("apply_btn")
+
+        if not all([self._window, self._add_button, self._reset_button, self._listbox, self._cancel_btn, self._apply_btn]):
+            self.log.error("UI missing required widgets (add/reset/list/cancel/apply)")
+            return
+
+        self._add_button.connect("clicked", self._on_add_clicked)
+        self._reset_button.connect("clicked", self._on_reset_clicked)
+        self._cancel_btn.connect("clicked", lambda _b: self._collect_and_close(False))
+        self._apply_btn.connect("clicked", lambda _b: self._collect_and_close(True))
+        self._window.connect("close-request", self._on_close_request)
+
+        # To support reset to initial, store them
+        self._initial_props: dict = {}
+
+    def _on_add_clicked(self, _btn):
+        self._add_row()
+
+    def _on_reset_clicked(self, _btn):
+        for child in list(self._listbox):  # type: ignore[arg-type]
+            self._listbox.remove(child)
+        for k, v in self._initial_props.items():
+            self._add_row(str(k), v)
+        self._add_row()
+
+    def _on_close_request(self, *args):
+        self._collect_and_close(False)
+        return True
+
+    def _add_row(self, k: str = "", v: object = ""):
+        row = Gtk.ListBoxRow()
+        hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        row.set_child(hb)
+
+        key_entry = Gtk.Entry()
+        key_entry.set_hexpand(True)
+        key_entry.set_placeholder_text("key")
+        key_entry.set_text(k or "")
+
+        value_entry = Gtk.Entry()
+        value_entry.set_hexpand(True)
+        value_entry.set_placeholder_text("value (JSON or text)")
+        value_entry.set_text(self._format_value(v))
+
+        remove_btn = Gtk.Button.new_from_icon_name("user-trash-symbolic")
+        remove_btn.set_tooltip_text("Remove this property")
+
+        def _remove(_btn):
+            self._listbox.remove(row)
+
+        remove_btn.connect("clicked", _remove)
+
+        hb.append(Gtk.Label(label="Key", xalign=0))
+        hb.append(key_entry)
+        hb.append(Gtk.Label(label="Value", xalign=0))
+        hb.append(value_entry)
+        hb.append(remove_btn)
+
+        row._key_entry = key_entry  # type: ignore[attr-defined]
+        row._value_entry = value_entry  # type: ignore[attr-defined]
+
+        self._listbox.append(row)
+
+    def _collect_and_close(self, accept: bool):
+        if accept:
+            new_props: dict[str, object] = {}
+            for row in self._listbox:  # type: ignore[assignment]
+                try:
+                    key = row._key_entry.get_text().strip()  # type: ignore[attr-defined]
+                    val_text = row._value_entry.get_text()  # type: ignore[attr-defined]
+                except Exception:
+                    continue
+                if key:
+                    new_props[key] = self._parse_value(val_text)
+            self._result = new_props
+        else:
+            self._result = None
+
+        if self._loop and self._loop.is_running():
+            self._loop.quit()
+
+        if self._window:
+            self._window.set_visible(False)
+
+    def open(self, initial_props: dict | None = None) -> dict | None:
         if not (Gdk.Display.get_default() or os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
             self.log.info("No graphical display available; skipping properties dialog.")
             return None
 
-        initial = dict(initial_props or {})
-        result_container: dict[str, object] | None = None
-
-        if self._window is None:
-            self._window = self.window_builder.get_object("elk_props_window")
-
-            add_button = self.window_builder.get_object("add_button")
-            reset_button = self.window_builder.get_object("reset_button")
-            listbox = self.window_builder.get_object("props_listbox")
-            cancel_btn = self.window_builder.get_object("cancel_btn")
-            apply_btn = self.window_builder.get_object("apply_btn")
-
-        if not all([add_button, reset_button, listbox, cancel_btn, apply_btn]):
-            log.warning("UI missing required widgets (add/reset/list/cancel/apply)")
+        if not self._window:
             return None
 
-        listbox = typing.cast(Gtk.ListBox, listbox)
+        self._initial_props = dict(initial_props or {})
+        self._result = None
 
-        def _add_row(k: str = "", v: object = ""):
-            row = Gtk.ListBoxRow()
-            hb = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-            row.set_child(hb)
+        # Reset listbox
+        for child in list(self._listbox):  # type: ignore[arg-type]
+            self._listbox.remove(child)
 
-            key_entry = Gtk.Entry()
-            key_entry.set_hexpand(True)
-            key_entry.set_placeholder_text("key")
-            key_entry.set_text(k or "")
+        for k, v in self._initial_props.items():
+            self._add_row(str(k), v)
+        self._add_row()
 
-            value_entry = Gtk.Entry()
-            value_entry.set_hexpand(True)
-            value_entry.set_placeholder_text("value (JSON or text)")
-            value_entry.set_text(self._format_value(v))
-
-            remove_btn = Gtk.Button.new_from_icon_name("user-trash-symbolic")
-            remove_btn.set_tooltip_text("Remove this property")
-
-            def _remove(_btn):
-                listbox.remove(row)
-
-            remove_btn.connect("clicked", _remove)
-
-            hb.append(Gtk.Label(label="Key", xalign=0))
-            hb.append(key_entry)
-            hb.append(Gtk.Label(label="Value", xalign=0))
-            hb.append(value_entry)
-            hb.append(remove_btn)
-
-            row._key_entry = key_entry  # type: ignore[attr-defined]
-            row._value_entry = value_entry  # type: ignore[attr-defined]
-
-            listbox.append(row)
-
-        for k, v in initial.items():
-            _add_row(str(k), v)
-        _add_row()
-
-        def _on_add(_btn):
-            _add_row()
-
-        add_button.connect("clicked", _on_add)
-
-        def _on_reset(_btn):
-            for child in list(listbox):  # type: ignore[arg-type]
-                listbox.remove(child)
-            for k, v in initial.items():
-                _add_row(str(k), v)
-            _add_row()
-
-        reset_button.connect("clicked", _on_reset)
-
-        # Ensure the window is attached to the running Gtk.Application and has a
-        # proper transient parent so it reliably shows up when used as a Gaphor
-        # plugin (otherwise a detached toplevel may not be presented by the WM).
         self._window.set_transient_for(self.parent)
-
-        loop = GLib.MainLoop()
-        # Store the loop so we can quit it from close()
-        self._loop = loop
-
-        def _collect_and_close(accept: bool):
-            nonlocal result_container
-            if accept:
-                new_props: dict[str, object] = {}
-                for row in listbox:  # type: ignore[assignment]
-                    try:
-                        key = row._key_entry.get_text().strip()  # type: ignore[attr-defined]
-                        val_text = row._value_entry.get_text()  # type: ignore[attr-defined]
-                    except Exception:
-                        continue
-                    if key:
-                        new_props[key] = self._parse_value(val_text)
-                result_container = new_props
-            else:
-                result_container = None
-
-            if self._loop:
-                try:
-                    self._loop.quit()
-                    # self._loop = None  # Clear it later to avoid race in concurrent calls
-                except Exception:
-                    pass
-
-            if self._window:
-                try:
-                    win = self._window
-                    # Clear it before closing to avoid re-entry from "close-request"
-                    self._window = None
-                    win.close()
-                except Exception:
-                    pass
-
-        cancel_btn.connect("clicked", lambda _b: _collect_and_close(False))
-        apply_btn.connect("clicked", lambda _b: _collect_and_close(True))
-        self._window.connect("close-request", lambda *_: (_collect_and_close(False), True)[1])
-
         self._window.present()
+
+        self._loop = GLib.MainLoop()
         try:
-            loop.run()
+            self._loop.run()
         finally:
-            try:
-                loop.quit()
-            except Exception:
-                pass
-            # Clear references after the dialog finishes
-            self._window = None
             self._loop = None
 
-        return result_container
+        return self._result
 
     def close(self):
         """Close the dialog if it is open.
@@ -294,7 +279,7 @@ class ElkPropertiesDialog(UIComponent):
         request the component to shut down.
         """
         try:
-            if self._loop and getattr(self._loop, "is_running", lambda: False)():
+            if self._loop and self._loop.is_running():
                 try:
                     self._loop.quit()
                 except Exception:
@@ -306,7 +291,6 @@ class ElkPropertiesDialog(UIComponent):
                     self._window.close()
                 except Exception:
                     pass
-            self._window = None
             self._loop = None
 
 
