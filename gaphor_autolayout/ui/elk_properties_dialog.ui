@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <requires lib="gtk" version="4.0"/>
-  <requires lib="adw" version="1"/>
+  <requires lib="adw" version="1.0"/>
 
   <!-- ELK Properties Dialog UI -->
   <object class="AdwWindow" id="elk_props_window">
