@@ -73,7 +73,7 @@ def diagram(element_factory, event_manager):
 
 def test_open_custom_properties_initializes_with_normal_and_stores(diagram, event_manager):
     fake_dialog = FakeDialog({"elk.algorithm": "layered", "custom": "yes"})
-    service = AutoLayoutELKService(event_manager, FakeDiagrams(diagram), tools_menu=None, dump_gv=False)
+    service = AutoLayoutELKService(event_manager, FakeDiagrams(diagram), tools_menu=None)
     # inject dialog (will be added by implementation)
     service.layout_properties_dialog = fake_dialog
 
@@ -89,7 +89,7 @@ def test_open_custom_properties_initializes_with_normal_and_stores(diagram, even
 def test_apply_custom_properties_calls_layout_with_custom(diagram, event_manager, monkeypatch):
     fake_props = {"elk.algorithm": "layered", "elk.direction": "DOWN", "custom": 1}
     fake_dialog = FakeDialog(fake_props)
-    service = AutoLayoutELKService(event_manager, FakeDiagrams(diagram), tools_menu=None, dump_gv=False)
+    service = AutoLayoutELKService(event_manager, FakeDiagrams(diagram), tools_menu=None)
     service.layout_properties_dialog = fake_dialog
 
     # Simulate user opening and accepting dialog
@@ -117,7 +117,7 @@ def test_open_custom_properties_uses_default_dialog(diagram, event_manager, monk
     captured = {}
 
     class FakeElkDlg:
-        def __init__(self, to_return: dict | None, main_window=None):
+        def __init__(self, main_window=None):
             pass
 
         def open(self, initial_props=None):
@@ -127,7 +127,7 @@ def test_open_custom_properties_uses_default_dialog(diagram, event_manager, monk
     monkeypatch.setattr(autolayoutelk, "ElkPropertiesDialog", FakeElkDlg)
 
     service = autolayoutelk.AutoLayoutELKService(
-        event_manager, FakeDiagrams(diagram), tools_menu=None, dump_gv=False
+        event_manager, FakeDiagrams(diagram), tools_menu=None
     )
 
     # Act: call without injecting a dialog provider so the service uses default

@@ -4,7 +4,9 @@ version = "0.2.0"
 description = "Auto layout diagrams using ELK"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "gaphor>=3.2.0",
+]
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -32,6 +34,7 @@ include = [
 
 [dependency-groups]
 dev = [
+    "gaphas>=4.1.1",
     "gaphor>=3.0.0",
     "pytest>=8.3.4",
 ]

@@ -9,6 +9,13 @@ from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
 from functools import singledispatch
 
+
+import gi  # type: ignore
+gi.require_version("Adw", "1")
+gi.require_version("Gtk", "4.0")
+
+from gi.repository import Adw, Gdk, Gtk, GLib
+
 from gaphas.connector import ConnectionSink, Connector
 from gaphas.geometry import Point
 from gaphas.item import NW
@@ -17,6 +24,7 @@ from gaphas.segment import Segment
 from gaphor.UML import Comment
 
 from gaphor.abc import ActionProvider, Service
+from gaphor.ui.abc import UIComponent
 from gaphor.action import action
 from gaphor.core.modeling import Base, Diagram, Presentation
 from gaphor.diagram.group import can_group, group
@@ -25,7 +33,7 @@ from gaphor.diagram.presentation import (
     ElementPresentation,
     LinePresentation,
 )
-from gaphor.i18n import gettext
+from gaphor.i18n import gettext, translated_ui_string
 from gaphor.transaction import Transaction
 
 # UML specific imports (could probably avoid)
@@ -99,7 +107,7 @@ class Sections:
     outgoingSections: list
 
 
-class ElkPropertiesDialog:
+class ElkPropertiesDialog(UIComponent):
     """Dialog class to configure custom ELK layout properties.
 
     Encapsulates UI creation via Gtk.Builder and exposes a synchronous
@@ -109,7 +117,15 @@ class ElkPropertiesDialog:
 
     def __init__(self, main_window) -> None:
         self.log = logging.getLogger(__name__)
-        self.main_window = main_window
+        self.parent = main_window.window
+        # Keep references so we can implement UIComponent.close()
+        self._window: Gtk.Window | None = None
+        self._loop = None
+
+        self.window_builder = Gtk.Builder()
+        self.window_builder.add_from_string(
+            translated_ui_string("gaphor_autolayout", "ui/elk_properties_dialog.ui")
+        )
 
     @staticmethod
     def _parse_value(text: str):
@@ -137,53 +153,22 @@ class ElkPropertiesDialog:
         return str(value)
 
     def open(self, initial_props: dict | None = None) -> dict | None:
-        log = self.log
-        try:
-            import gi  # type: ignore
-            try:
-                gi.require_version("Adw", "1")
-                gi.require_version("Gtk", "4.0")
-            except Exception:
-                pass
-            from gi.repository import Adw, Gtk, GLib  # type: ignore
-        except Exception as e:  # pragma: no cover - GUI not available in tests
-            log.warning("Libadwaita/Gtk not available for properties dialog: %s", e)
-            return None
 
-        if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
-            log.info("No DISPLAY/WAYLAND_DISPLAY set; skipping properties dialog.")
+        if not (Gdk.Display.get_default() or os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
+            self.log.info("No graphical display available; skipping properties dialog.")
             return None
 
         initial = dict(initial_props or {})
         result_container: dict[str, object] | None = None
 
-        from importlib import resources as _resources
-        try:
-            with _resources.as_file(
-                _resources.files("gaphor_autolayout").joinpath("ui/elk_properties_dialog.ui")
-            ) as _p:
-                ui_path = str(_p)
-        except Exception as e:
-            log.warning("Could not locate UI file for ELK properties dialog: %s", e)
-            return None
+        if self._window is None:
+            self._window = self.window_builder.get_object("elk_props_window")
 
-        builder = Gtk.Builder()
-        try:
-            builder.add_from_file(ui_path)
-        except Exception as e:
-            log.warning("Failed to load UI file '%s': %s", ui_path, e)
-            return None
-
-        window = builder.get_object("elk_props_window")
-        if not isinstance(window, Adw.Window):
-            log.warning("UI did not provide an Adw.Window with id 'elk_props_window'")
-            return None
-
-        add_button = builder.get_object("add_button")
-        reset_button = builder.get_object("reset_button")
-        listbox = builder.get_object("props_listbox")
-        cancel_btn = builder.get_object("cancel_btn")
-        apply_btn = builder.get_object("apply_btn")
+            add_button = self.window_builder.get_object("add_button")
+            reset_button = self.window_builder.get_object("reset_button")
+            listbox = self.window_builder.get_object("props_listbox")
+            cancel_btn = self.window_builder.get_object("cancel_btn")
+            apply_btn = self.window_builder.get_object("apply_btn")
 
         if not all([add_button, reset_button, listbox, cancel_btn, apply_btn]):
             log.warning("UI missing required widgets (add/reset/list/cancel/apply)")
@@ -246,14 +231,11 @@ class ElkPropertiesDialog:
         # Ensure the window is attached to the running Gtk.Application and has a
         # proper transient parent so it reliably shows up when used as a Gaphor
         # plugin (otherwise a detached toplevel may not be presented by the WM).
-        window.set_transient_for(self.main_window.window)
-
-        try:
-            window.set_modal(True)
-        except Exception:
-            pass
+        self._window.set_transient_for(self.parent)
 
         loop = GLib.MainLoop()
+        # Store the loop so we can quit it from close()
+        self._loop = loop
 
         def _collect_and_close(accept: bool):
             nonlocal result_container
@@ -270,14 +252,21 @@ class ElkPropertiesDialog:
                 result_container = new_props
             else:
                 result_container = None
-            loop.quit()
-            window.close()
+            try:
+                self._loop.quit()
+            except Exception:
+                pass
+            try:
+                self._window.close()
+            finally:
+                self._window = None
+                self._loop = None
 
         cancel_btn.connect("clicked", lambda _b: _collect_and_close(False))
         apply_btn.connect("clicked", lambda _b: _collect_and_close(True))
-        window.connect("close-request", lambda *_: (_collect_and_close(False), True)[1])
+        self._window.connect("close-request", lambda *_: (_collect_and_close(False), True)[1])
 
-        window.present()
+        self._window.present()
         try:
             loop.run()
         finally:
@@ -285,8 +274,33 @@ class ElkPropertiesDialog:
                 loop.quit()
             except Exception:
                 pass
+            # Clear references after the dialog finishes
+            self._window = None
+            self._loop = None
 
         return result_container
+
+    def close(self):
+        """Close the dialog if it is open.
+
+        Implements UIComponent.close(). This makes it safe for Gaphor to
+        request the component to shut down.
+        """
+        try:
+            if self._loop and getattr(self._loop, "is_running", lambda: False)():
+                try:
+                    self._loop.quit()
+                except Exception:
+                    pass
+        finally:
+            if self._window:
+                try:
+                    # For Gtk4/Adw the correct way is to close the window
+                    self._window.close()
+                except Exception:
+                    pass
+            self._window = None
+            self._loop = None
 
 
 async def open_elk_properties_dialog(properties: dict, main_window: None) -> dict | None:
@@ -308,12 +322,11 @@ async def open_elk_properties_dialog(properties: dict, main_window: None) -> dic
 class AutoLayoutELKService(Service, ActionProvider):
     """Service provider for Autolayout using ELK"""
 
-    def __init__(self, event_manager, diagrams, tools_menu=None, dump_gv=False, main_window=None):
+    def __init__(self, event_manager, diagrams, tools_menu=None, main_window=None):
         self.event_manager = event_manager
         self.diagrams = diagrams
         if tools_menu:
             tools_menu.add_actions(self)
-        self.dump_gv = dump_gv
         self.main_window = main_window
 
         # Storage for user-configured custom properties
@@ -357,7 +370,7 @@ class AutoLayoutELKService(Service, ActionProvider):
 
         result: dict | None = None
 
-        # If a dialog provider was injected (mainly for tests), use it
+        # Use the dialog provided by tests or fall back to default
         dlg = getattr(self, "layout_properties_dialog", None)
         if dlg and hasattr(dlg, "open"):
             try:
@@ -366,7 +379,6 @@ class AutoLayoutELKService(Service, ActionProvider):
                 # Backward-compat without keyword
                 result = dlg.open(initial)
         else:
-            # Use the class-based dialog by default (preferred in Gaphor)
             try:
                 dlg = ElkPropertiesDialog(main_window=self.main_window)
                 result = dlg.open(initial_props=initial)
