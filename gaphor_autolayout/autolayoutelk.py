@@ -477,7 +477,12 @@ class AutoLayoutELK:
         elkjs_runner = os.path.join(current_directory, "elkrunner.js")
         rendered_graph_as_str = _run_nodejs_script(elkjs_runner, [json_export])
         log.info(f"Elk rendered graph {rendered_graph_as_str}")
-        rendered_graph_as_dict = json.loads(rendered_graph_as_str)
+        try:
+            rendered_graph_as_dict = json.loads(rendered_graph_as_str)
+        except json.JSONDecodeError as e:
+            raise RuntimeError(
+                f"ELK returned invalid JSON output: {rendered_graph_as_str.strip()}"
+            ) from e
 
         # get resulting node locations for use late
         node_positions: dict[str, tuple[float, float]] = {}
@@ -655,7 +660,10 @@ def _run_nodejs_script(script_path, arg):
     if result.returncode == 0:
         return result.stdout
     else:
-        raise Exception(f"Error running or finding Node.js script: {result.stderr} with the following input: {arg[0]}")
+        message = result.stderr.strip() or result.stdout.strip() or "Node.js runner failed"
+        raise RuntimeError(
+            f"Error running ELK Node.js script: {message}. Input graph: {arg[0]}"
+        )
 
 
 def _as_cluster(presentation: Presentation):

@@ -212,10 +212,6 @@ def test_strip_line_endings():
     assert _strip_quotes('\\\r\n"807.5"') == "807.5"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Runner failures currently surface as JSONDecodeError instead of a useful ELK error.",
-)
 def test_layout_reports_runner_failure_with_useful_error(diagram, create, monkeypatch):
     c1 = create(ClassItem, UML.Class)
     c2 = create(ClassItem, UML.Class)
@@ -230,7 +226,7 @@ def test_layout_reports_runner_failure_with_useful_error(diagram, create, monkey
 
     auto_layout = AutoLayoutELK()
 
-    with pytest.raises(RuntimeError, match="ELK"):
+    with pytest.raises(RuntimeError, match="ELK returned invalid JSON output"):
         auto_layout.layout(diagram, layout_properties_normal())
 
 
