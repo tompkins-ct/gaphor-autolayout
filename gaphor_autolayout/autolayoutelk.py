@@ -4,6 +4,7 @@ import subprocess
 import logging
 import typing
 import asyncio
+import shutil
 
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
@@ -629,15 +630,17 @@ def _add_to_graph(parent, edge_or_node) -> None:
 
 def _run_nodejs_script(script_path, arg):
     """run Node.js script from python"""
-    # Note: the path in compiled bytecode is different from straight run so we need to find the NodeJS executable
-    if os.path.exists("/usr/local/bin/node"):
-        node_exc = r"/usr/local/bin/node"
-    elif os.path.exists("/opt/homebrew/bin/node"):
-        node_exc = r"/opt/homebrew/bin/node"
-    elif os.path.exists("C:/Program Files/nodejs"):
-        node_exc = r"C:/Program Files/nodejs.exe"
-    else:
-        raise Exception("Can't find nodejs executable")
+    node_exc = shutil.which("node")
+    if node_exc is None:
+        # Fallbacks for environments where PATH is incomplete when launched from a GUI.
+        if os.path.exists("/usr/local/bin/node"):
+            node_exc = r"/usr/local/bin/node"
+        elif os.path.exists("/opt/homebrew/bin/node"):
+            node_exc = r"/opt/homebrew/bin/node"
+        elif os.path.exists("C:/Program Files/nodejs"):
+            node_exc = r"C:/Program Files/nodejs.exe"
+        else:
+            raise Exception("Can't find nodejs executable")
 
     cmd = [node_exc, script_path] + arg
     try:

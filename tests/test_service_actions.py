@@ -16,6 +16,7 @@ from gaphor.UML.uml import Diagram
 
 from gaphor_autolayout.autolayoutelk import (
     AutoLayoutELKService,
+    _run_nodejs_script,
     layout_properties_normal,
 )
 
@@ -137,3 +138,27 @@ def test_open_custom_properties_uses_default_dialog(diagram, event_manager, monk
     # and the returned dict is stored on the service
     assert captured["initial"] == autolayoutelk.layout_properties_normal()
     assert service._custom_layout_properties == {"elk.algorithm": "layered", "custom": "ok"}
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="The dialog constructor dereferences main_window.window even when no main window is provided.",
+)
+def test_dialog_can_be_constructed_without_main_window():
+    autolayoutelk.ElkPropertiesDialog(main_window=None)
+
+
+def test_run_nodejs_script_uses_node_from_path(monkeypatch):
+    monkeypatch.setattr(autolayoutelk.shutil, "which", lambda _name: "node")
+
+    def fake_run(cmd, capture_output, text, check):
+        assert cmd[0] == "node"
+        return type(
+            "CompletedProcess",
+            (),
+            {"returncode": 0, "stdout": '{"ok": true}', "stderr": ""},
+        )()
+
+    monkeypatch.setattr(autolayoutelk.subprocess, "run", fake_run)
+
+    assert _run_nodejs_script("fake-script.js", ['{"id": "graph"}']) == '{"ok": true}'

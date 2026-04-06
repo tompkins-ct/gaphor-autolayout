@@ -106,9 +106,6 @@ wheels = [
 name = "gaphor-autolayout"
 version = "0.2.0"
 source = { editable = "." }
-dependencies = [
-    { name = "gaphor" },
-]
 
 [package.dev-dependencies]
 dev = [
@@ -118,12 +115,11 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "gaphor", specifier = ">=3.2.0" }]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "gaphas", specifier = ">=4.1.1" },
-    { name = "gaphor", specifier = ">=3.0.0" },
+    { name = "gaphor", specifier = ">=3.2.0" },
     { name = "pytest", specifier = ">=8.3.4" },
 ]
 

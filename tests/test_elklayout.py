@@ -8,7 +8,9 @@ from gaphor import UML
 from gaphor_autolayout.autolayoutelk import (
     AutoLayoutELK,
     _parse_edge_pos,
-    _strip_quotes, layout_properties_normal,
+    _strip_quotes,
+    as_graph,
+    layout_properties_normal,
 )
 
 from gaphor.UML.diagramitems import (
@@ -208,3 +210,37 @@ def test_strip_line_endings():
     assert _strip_quotes("\\\n807.5") == "807.5"
     assert _strip_quotes("\\\r\n807.5") == "807.5"
     assert _strip_quotes('\\\r\n"807.5"') == "807.5"
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="Runner failures currently surface as JSONDecodeError instead of a useful ELK error.",
+)
+def test_layout_reports_runner_failure_with_useful_error(diagram, create, monkeypatch):
+    c1 = create(ClassItem, UML.Class)
+    c2 = create(ClassItem, UML.Class)
+    a = create(AssociationItem)
+    connect(a, a.head, c1)
+    connect(a, a.tail, c2)
+
+    monkeypatch.setattr(
+        "gaphor_autolayout.autolayoutelk._run_nodejs_script",
+        lambda *_args, **_kwargs: "ELK failed: synthetic error output",
+    )
+
+    auto_layout = AutoLayoutELK()
+
+    with pytest.raises(RuntimeError, match="ELK"):
+        auto_layout.layout(diagram, layout_properties_normal())
+
+
+@pytest.mark.xfail(
+    strict=True,
+    reason="Comment presentations are checked against the UML metaclass instead of the diagram item type.",
+)
+def test_comment_items_are_marked_as_comment_boxes(create):
+    comment = create(CommentItem, UML.Comment)
+
+    graph_node = next(as_graph(comment))
+
+    assert graph_node.properties["org.eclipse.elk.commentBox"] == "true"
